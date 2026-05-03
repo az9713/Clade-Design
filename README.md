@@ -208,19 +208,64 @@ pnpm test
 
 ## What is net-new
 
-Everything else is inherited from the two foundational repos. These 11 components are original to Clade-Design:
+Clade-Design adds 11 original components on top of the two foundational repos. Everything else is inherited:
 
-1. Brand-brain SQLite schema — `brand_nodes`, `brand_fields`, `brand_history`, `brand_candidates`
-2. Cascade resolver — flat in V1 (single node per project); hierarchy in V2
-3. Brand-brain prompt injector — 9-layer stack; Layer 3 = live brand snapshot
-4. Pattern extractor — post-generation hook; extracts hex/font/spacing from artifact HTML
-5. Governance queue — promote/reject with confidence rules and lock counter
-6. Health score calculator — completeness × consistency × confidence
-7. Left pane UI — 320px BrandPane with Hierarchy / Queue / History tabs
-8. Bootstrap flows — Path A (137-brand library) + Path B (asset extraction + Huashu protocol)
-9. Direction advisor — full 20×5 philosophy matrix; brand-brain-informed in V2
-10. Animation router — local Huashu pipeline ↔ cloud dispatch + brand context pre-fill
-11. E2E Playwright suite — 13 tests covering the full brand-brain learning loop
+1. **Brand-brain SQLite schema** — `brand_nodes`, `brand_fields`, `brand_history`, `brand_candidates`
+2. **Cascade resolver** — flat in V1 (single node per project); hierarchy in V2
+3. **Brand-brain prompt injector** — 9-layer stack; Layer 3 = live brand snapshot replacing static DESIGN.md
+4. **Pattern extractor** — post-generation hook; extracts hex colors, font families, spacing from artifact HTML
+5. **Governance queue** — promote/reject candidates with confidence rules and lock counter
+6. **Health score calculator** — `(completeness × 0.4) + (consistency × 0.4) + (avg confidence × 0.2)`
+7. **Left pane UI** — 320px `BrandPane` with Hierarchy / Queue / History tabs, always visible
+8. **Bootstrap flows** — Path A (137-brand library grid) + Path B (asset upload → Huashu protocol → `brand-spec.md`)
+9. **Direction advisor** — full 20×5 philosophy matrix parsed from `design-styles.md`; brand-brain-informed in V2
+10. **Animation router** — local Huashu pipeline ↔ cloud dispatch + brand context pre-fill for cloud prompts
+11. **E2E Playwright suite** — 13 tests covering the full brand-brain learning loop
+
+---
+
+## What was reused
+
+### From Open Design
+
+**Taken unchanged:**
+- Next.js 16 + React 18 frontend shell — all existing views, routing, SSE streaming, file workspace
+- Express daemon + SQLite infrastructure — `db.ts` (we added 4 tables to it)
+- All 13 agent CLI adapters (`agents.ts`) — Claude Code, Codex, Gemini CLI, Cursor Agent, Devin, OpenCode, Copilot CLI, Qwen, Hermes, Kimi, Pi, Kiro, BYOK proxy
+- All 52 skill bundles + skill loader (`skills.ts` — we extended it with 2 new `od:` frontmatter fields)
+- All 137 design system `DESIGN.md` files — repurposed as Bootstrap Path A seeds
+- Media generation infrastructure (`media.ts`, `media-models.ts`, `media-config.ts`) — animation router hooks in on top
+- Craft references system, conversation management, project management, SSE event handling
+
+**Taken and extended:**
+- `db.ts` — 4 new brand-brain tables + indexes + CRUD helpers
+- `server.ts` — ~15 new brand endpoints + media dispatch hook + pattern extraction hook
+- `skills.ts` — added `brandBrainInjection` and `brandBrainManagesDirection` parsing
+- `prompts/system.ts` — added Layer 3 (brand snapshot) and Layer 6 (direction philosophy)
+- `ProjectView.tsx` — wired in `BrandPane`, `BootstrapScreen`, `DirectionPicker`
+
+### From Huashu Design
+
+**Taken unchanged:**
+- Local animation pipeline — `render-video.js`, `convert-formats.sh`, `add-music.sh` → `packages/huashu-scripts/`
+- Animation runtime — `animations.jsx`, `deck_stage.js`, device frame components → `packages/huashu-assets/`
+- Direction matrix — `design-styles.md` (20 philosophies × 5 schools) → `craft/huashu-references/`
+- `verify.py` for Playwright integration
+
+**Concepts reimplemented with persistence:**
+- Brand Asset Protocol (SKILL.md §1) — reimplemented as Bootstrap Path B + `parseBrandSpec()`
+- Per-task pattern extraction — reimplemented as persistent `pattern-extractor.ts` with SQLite memory
+- Anti-slop rules and workflow discipline — folded into prompt stack Layers 1 and 2
+
+---
+
+## Acknowledgements
+
+Clade-Design is built on the shoulders of two exceptional open-source projects.
+
+**[Open Design](https://github.com/nexu-io/open-design)** — the open-source alternative to Claude Design. Open Design proved that a local-first, multi-agent design platform was buildable, and contributed the infrastructure that Clade-Design runs on: the Express daemon, SQLite schema, 13 agent adapters, 52 skills, 137 design systems, and the entire Next.js frontend. Without Open Design, Clade-Design would have taken years instead of days.
+
+**Huashu Design** — a rigorous, philosophy-driven design workflow system built around the principle that quality gates and brand discipline are non-negotiable. Huashu contributed Clade-Design's creative soul: the 20×5 direction matrix, the Brand Asset Protocol, the local animation pipeline, and the anti-slop rules that prevent every agent from regressing to purple gradients and rounded cards. The insight that *brand extraction should happen before the first pixel* is Huashu's, and it is the direct ancestor of Clade-Design's brand-brain.
 
 ---
 
