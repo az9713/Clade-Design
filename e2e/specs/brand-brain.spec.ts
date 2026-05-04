@@ -99,55 +99,90 @@ test.describe('Brand-brain bootstrap', () => {
   });
 });
 
+// Helper: insert a deterministic pending candidate via the test fixture endpoint
+// (requires OD_ALLOW_TEST_FIXTURES=1 on the daemon, set in playwright.config.ts).
+async function createFixtureCandidate(
+  request: Parameters<typeof test>[1] extends infer T ? T extends { request: infer R } ? R : never : never,
+  projectId: string,
+  overrides: { section?: string; key?: string; value?: string; occurrences?: number } = {},
+) {
+  const res = await request.post(`/api/brand/${projectId}/candidates/fixture`, {
+    data: {
+      section: overrides.section ?? 'colors',
+      key: overrides.key ?? 'primary',
+      value: overrides.value ?? '#533afd',
+      occurrences: overrides.occurrences ?? 5,
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  return (await res.json()) as { id: string; section: string; key: string; value: string; occurrences: number };
+}
+
 test.describe('Governance queue', () => {
   test('promote increases health and writes history entry', async ({ request }) => {
     const project = await createProject(request, 'Governance Test');
     const projectId = project.id;
 
-    await request.post(`/api/brand/${projectId}/bootstrap/seed`, {
-      data: { designSystemId: 'stripe' },
-    });
-
     const healthBefore = (await (await request.get(`/api/brand/${projectId}/health`)).json()).health;
-    const candidates = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
 
-    if (candidates.length > 0) {
-      const candidateId = candidates[0].id;
-      const promoteRes = await request.post(`/api/brand/${projectId}/promote/${candidateId}`);
-      expect(promoteRes.ok()).toBeTruthy();
+    // Create a deterministic candidate via fixture — unconditionally exercised
+    const candidate = await createFixtureCandidate(request, projectId);
 
-      const healthAfter = (await (await request.get(`/api/brand/${projectId}/health`)).json()).health;
-      expect(healthAfter).toBeGreaterThanOrEqual(healthBefore);
+    const promoteRes = await request.post(`/api/brand/${projectId}/promote/${candidate.id}`);
+    expect(promoteRes.ok()).toBeTruthy();
 
-      const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
-      expect(history.some((e: { action: string }) => e.action === 'promote')).toBe(true);
-    } else {
-      // Bootstrap seeds at confidence 0.35 — below the 0.5 snapshot threshold but candidates
-      // only surface at >= 3 occurrences. This is expected; test is still valid.
-      test.info().annotations.push({
-        type: 'note',
-        description: 'No pending candidates post-seed — governance queue correctly empty',
-      });
-    }
+    const healthAfter = (await (await request.get(`/api/brand/${projectId}/health`)).json()).health;
+    expect(healthAfter).toBeGreaterThan(healthBefore);
+
+    const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
+    expect(history.some((e: { action: string }) => e.action === 'promote')).toBe(true);
+
+    // Promoted field must appear in the brand snapshot (confidence 0.9 ≥ 0.5 gate)
+    const snap = await (await request.get(`/api/brand/${projectId}/snapshot`)).json();
+    expect(snap.colors?.primary).toBe('#533afd');
   });
 
-  test('reject writes history entry', async ({ request }) => {
+  test('reject writes history entry and does not destroy a promoted field with a different value', async ({ request }) => {
     const project = await createProject(request, 'Reject Test');
     const projectId = project.id;
 
-    await request.post(`/api/brand/${projectId}/bootstrap/seed`, {
-      data: { designSystemId: 'stripe' },
+    // Promote a field first
+    const promotedCandidate = await createFixtureCandidate(request, projectId, {
+      key: 'primary',
+      value: '#533afd',
+    });
+    await request.post(`/api/brand/${projectId}/promote/${promotedCandidate.id}`);
+
+    // Now create a conflicting candidate with the same key but different value
+    const conflictCandidate = await createFixtureCandidate(request, projectId, {
+      key: 'primary',
+      value: '#ff0000',
     });
 
-    const candidates = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
+    const rejectRes = await request.post(`/api/brand/${projectId}/reject/${conflictCandidate.id}`);
+    expect(rejectRes.ok()).toBeTruthy();
 
-    if (candidates.length > 0) {
-      const rejectRes = await request.post(`/api/brand/${projectId}/reject/${candidates[0].id}`);
-      expect(rejectRes.ok()).toBeTruthy();
+    const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
+    expect(history.some((e: { action: string }) => e.action === 'reject')).toBe(true);
 
-      const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
-      expect(history.some((e: { action: string }) => e.action === 'reject')).toBe(true);
-    }
+    // The promoted field must survive the rejection of a conflicting candidate
+    const snap = await (await request.get(`/api/brand/${projectId}/snapshot`)).json();
+    expect(snap.colors?.primary).toBe('#533afd');
+  });
+
+  test('clearBrandNodeFields purges candidates from the queue', async ({ request }) => {
+    const project = await createProject(request, 'Clear Candidates Test');
+    const projectId = project.id;
+
+    await createFixtureCandidate(request, projectId);
+
+    const beforeClear = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
+    expect(beforeClear.length).toBe(1);
+
+    await request.post(`/api/brand/${projectId}/bootstrap/clear`);
+
+    const afterClear = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
+    expect(afterClear.length).toBe(0);
   });
 });
 

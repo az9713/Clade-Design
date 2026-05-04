@@ -346,20 +346,21 @@ export function parseBrandSpec(db, nodeId, content) {
  */
 export function clearBrandNodeFields(db, nodeId) {
   const now = Date.now();
-
-  db.prepare('DELETE FROM brand_fields WHERE node_id = ?').run(nodeId);
-
-  insertBrandHistory(db, {
-    id: randomUUID(),
-    nodeId,
-    section: 'meta',
-    key: 'bootstrap',
-    oldValue: null,
-    newValue: 'Bootstrap reset',
-    confidence: null,
-    action: 'reset',
-    createdAt: now,
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM brand_fields WHERE node_id = ?').run(nodeId);
+    db.prepare('DELETE FROM brand_candidates WHERE node_id = ?').run(nodeId);
+    insertBrandHistory(db, {
+      id: randomUUID(),
+      nodeId,
+      section: 'meta',
+      key: 'bootstrap',
+      oldValue: null,
+      newValue: 'Bootstrap reset',
+      confidence: null,
+      action: 'reset',
+      createdAt: now,
+    });
+    updateBrandNodeHealth(db, nodeId, 0);
   });
-
-  updateBrandNodeHealth(db, nodeId, 0);
+  tx();
 }

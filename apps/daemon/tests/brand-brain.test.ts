@@ -30,6 +30,7 @@ import {
   updateFieldConfidence,
 } from '../src/brand-brain.js';
 import { findBrandCandidateByPattern, listBrandCandidates } from '../src/db.js';
+import { clearBrandNodeFields } from '../src/brand-brain-bootstrap.js';
 
 const tempDirs = [];
 
@@ -411,4 +412,95 @@ test('getActiveDirectionPhilosophy returns null when no direction has been picke
   const node = createBrandNode(db, pid, 'Brand');
   const active = getActiveDirectionPhilosophy(db, node.id, []);
   assert.equal(active, null);
+});
+
+// --- Regression: reject must not erase an accepted field with a different value ---
+
+test('rejectBrandCandidate does not overwrite a promoted field with a different value', () => {
+  const db = createDb();
+  const pid = seedProject(db);
+  const node = createBrandNode(db, pid, 'Brand');
+  const now = Date.now();
+
+  // Simulate a previously promoted field: colors.primary = #533afd
+  upsertBrandField(db, {
+    id: randomUUID(),
+    nodeId: node.id,
+    section: 'colors',
+    key: 'primary',
+    value: '#533afd',
+    confidence: 0.9,
+    source: 'promoted',
+    locked: 0,
+    lockCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Insert a conflicting candidate with a different value
+  const candidateId = randomUUID();
+  upsertBrandCandidate(db, {
+    id: candidateId,
+    nodeId: node.id,
+    section: 'colors',
+    key: 'primary',
+    value: '#ff0000',
+    occurrences: 5,
+    status: 'pending',
+    artifactId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Reject the conflicting candidate
+  const result = rejectBrandCandidate(db, node.id, candidateId);
+  assert.ok(result, 'reject should return a result');
+
+  // The accepted field must be untouched
+  const field = getBrandField(db, node.id, 'colors', 'primary');
+  assert.ok(field, 'field should still exist');
+  assert.equal(field.value, '#533afd', 'promoted value must not be overwritten');
+  assert.equal(field.confidence, 0.9, 'confidence must not be zeroed');
+  assert.equal(field.locked, 0, 'field must not be locked');
+
+  // The candidate should be marked rejected
+  const history = listBrandHistory(db, node.id);
+  assert.ok(history.some(h => h.action === 'reject'), 'reject history entry should exist');
+});
+
+// --- Regression: clearBrandNodeFields must also purge brand_candidates ---
+
+test('clearBrandNodeFields removes brand_candidates for the node', () => {
+  const db = createDb();
+  const pid = seedProject(db);
+  const node = createBrandNode(db, pid, 'Brand');
+  const now = Date.now();
+
+  // Insert a pending candidate
+  upsertBrandCandidate(db, {
+    id: randomUUID(),
+    nodeId: node.id,
+    section: 'colors',
+    key: 'accent',
+    value: '#e74c3c',
+    occurrences: 5,
+    status: 'pending',
+    artifactId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // Verify it exists before clear
+  const before = listBrandCandidates(db, node.id, 'pending', { minOccurrences: 1 });
+  assert.equal(before.length, 1, 'candidate should exist before clear');
+
+  clearBrandNodeFields(db, node.id);
+
+  // After clear, no candidates should remain
+  const after = listBrandCandidates(db, node.id, 'pending', { minOccurrences: 1 });
+  assert.equal(after.length, 0, 'candidates should be purged by clearBrandNodeFields');
+
+  // Health should be 0
+  const health = getHealthScore(db, node.id);
+  assert.equal(health, 0);
 });

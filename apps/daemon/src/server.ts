@@ -130,6 +130,7 @@ import {
   listBrandCandidates,
   listBrandFields,
   listBrandHistory,
+  upsertBrandCandidate,
 } from './db.js';
 import {
   buildDeployFileSet,
@@ -2690,6 +2691,39 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
+
+  // POST /api/brand/:projectId/candidates/fixture
+  // Test-only endpoint: inserts a candidate with a controllable occurrences count.
+  // Only active when OD_ALLOW_TEST_FIXTURES=1 — never registers in production.
+  if (process.env.OD_ALLOW_TEST_FIXTURES === '1') {
+    app.post('/api/brand/:projectId/candidates/fixture', (req, res) => {
+      try {
+        const node = getBrandNodeByProject(db, req.params.projectId);
+        if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
+        const { section, key, value, occurrences = 5 } = req.body ?? {};
+        if (!section || !key || !value) {
+          return sendApiError(res, 400, 'BAD_REQUEST', 'section, key, and value are required');
+        }
+        const now = Date.now();
+        const id = randomId();
+        upsertBrandCandidate(db, {
+          id,
+          nodeId: node.id,
+          section,
+          key,
+          value,
+          occurrences,
+          status: 'pending',
+          artifactId: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        res.json({ id, section, key, value, occurrences });
+      } catch (err) {
+        sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
+      }
+    });
+  }
 
   // GET /api/brand/:projectId/animation-pipeline
   app.get('/api/brand/:projectId/animation-pipeline', (req, res) => {

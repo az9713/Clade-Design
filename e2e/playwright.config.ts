@@ -43,6 +43,7 @@ export default defineConfig({
       env: {
         OD_PORT: String(daemonPort),
         OD_DATA_DIR: 'e2e/.od-data',
+        OD_ALLOW_TEST_FIXTURES: '1',
       },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

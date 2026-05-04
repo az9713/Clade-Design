@@ -212,7 +212,10 @@ export function rejectBrandCandidate(db, nodeId, candidateId) {
   if (!candidate || candidate.nodeId !== nodeId) return null;
   const now = Date.now();
   const existing = getBrandField(db, nodeId, candidate.section, candidate.key);
-  if (existing) {
+  // Only zero-and-lock the field when the candidate being rejected IS the current
+  // field value. If the user promoted #533afd and is now rejecting a conflicting
+  // candidate #ff0000, the accepted field must not be touched.
+  if (existing && existing.value === candidate.value) {
     upsertBrandField(db, {
       ...existing,
       confidence: 0.0,
