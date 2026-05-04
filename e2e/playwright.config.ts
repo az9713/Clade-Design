@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const daemonPort = Number(process.env.OD_PORT) || 17_456;
 const webPort = Number(process.env.OD_WEB_PORT) || 17_573;
@@ -38,15 +41,19 @@ export default defineConfig({
   // per-entry env injection — no cross-env or shell tricks needed.
   webServer: [
     {
-      command: 'pnpm --filter @clade/daemon dev',
+      // Run the already-built daemon directly — avoids a full tsc rebuild on
+      // every test run. Run `pnpm --filter @clade/daemon build` once before
+      // the first run, or after any daemon source change.
+      command: 'node apps/daemon/dist/cli.js --no-open',
       url: `http://127.0.0.1:${daemonPort}/api/version`,
+      cwd: `${__dirname}/..`,
       env: {
         OD_PORT: String(daemonPort),
         OD_DATA_DIR: 'e2e/.od-data',
         OD_ALLOW_TEST_FIXTURES: '1',
       },
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 30_000,
     },
     {
       command: 'pnpm --filter @clade/web dev',
