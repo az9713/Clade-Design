@@ -1,8 +1,8 @@
-export interface BrandHealth {
+export interface CladeHealth {
   health: number;
 }
 
-export interface BrandCandidate {
+export interface CladeCandidate {
   id: string;
   nodeId: string;
   section: string;
@@ -15,7 +15,7 @@ export interface BrandCandidate {
   updatedAt: number;
 }
 
-export interface BrandHistoryEntry {
+export interface CladeHistoryEntry {
   id: string;
   nodeId: string;
   section: string;
@@ -28,43 +28,43 @@ export interface BrandHistoryEntry {
   createdAt: number;
 }
 
-export async function fetchBrandHealth(projectId: string): Promise<BrandHealth> {
+export async function fetchCladeHealth(projectId: string): Promise<CladeHealth> {
   try {
-    const r = await fetch(`/api/brand/${encodeURIComponent(projectId)}/health`);
+    const r = await fetch(`/api/clade/${encodeURIComponent(projectId)}/health`);
     if (!r.ok) return { health: 0 };
-    return (await r.json()) as BrandHealth;
+    return (await r.json()) as CladeHealth;
   } catch {
     return { health: 0 };
   }
 }
 
-export async function fetchBrandCandidates(projectId: string): Promise<BrandCandidate[]> {
+export async function fetchCladeCandidates(projectId: string): Promise<CladeCandidate[]> {
   try {
-    const r = await fetch(`/api/brand/${encodeURIComponent(projectId)}/candidates`);
+    const r = await fetch(`/api/clade/${encodeURIComponent(projectId)}/candidates`);
     if (!r.ok) return [];
-    return (await r.json()) as BrandCandidate[];
+    return (await r.json()) as CladeCandidate[];
   } catch {
     return [];
   }
 }
 
-export async function fetchBrandHistory(projectId: string): Promise<BrandHistoryEntry[]> {
+export async function fetchCladeHistory(projectId: string): Promise<CladeHistoryEntry[]> {
   try {
-    const r = await fetch(`/api/brand/${encodeURIComponent(projectId)}/history`);
+    const r = await fetch(`/api/clade/${encodeURIComponent(projectId)}/history`);
     if (!r.ok) return [];
-    return (await r.json()) as BrandHistoryEntry[];
+    return (await r.json()) as CladeHistoryEntry[];
   } catch {
     return [];
   }
 }
 
-export async function promoteBrandCandidate(
+export async function promoteCladeCandidate(
   projectId: string,
   candidateId: string,
 ): Promise<{ health: number } | null> {
   try {
     const r = await fetch(
-      `/api/brand/${encodeURIComponent(projectId)}/promote/${encodeURIComponent(candidateId)}`,
+      `/api/clade/${encodeURIComponent(projectId)}/promote/${encodeURIComponent(candidateId)}`,
       { method: 'POST' },
     );
     if (!r.ok) return null;
@@ -74,13 +74,13 @@ export async function promoteBrandCandidate(
   }
 }
 
-export async function rejectBrandCandidate(
+export async function rejectCladeCandidate(
   projectId: string,
   candidateId: string,
 ): Promise<{ health: number } | null> {
   try {
     const r = await fetch(
-      `/api/brand/${encodeURIComponent(projectId)}/reject/${encodeURIComponent(candidateId)}`,
+      `/api/clade/${encodeURIComponent(projectId)}/reject/${encodeURIComponent(candidateId)}`,
       { method: 'POST' },
     );
     if (!r.ok) return null;
@@ -115,7 +115,7 @@ export async function bootstrapSeed(
 ): Promise<{ health: number } | null> {
   try {
     const r = await fetch(
-      `/api/brand/${encodeURIComponent(projectId)}/bootstrap/seed`,
+      `/api/clade/${encodeURIComponent(projectId)}/bootstrap/seed`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  fetchBrandHealth,
-  fetchBrandCandidates,
-  fetchBrandHistory,
-  promoteBrandCandidate,
-  rejectBrandCandidate,
-  type BrandCandidate,
-  type BrandHistoryEntry,
-} from '../providers/brand';
+  fetchCladeHealth,
+  fetchCladeCandidates,
+  fetchCladeHistory,
+  promoteCladeCandidate,
+  rejectCladeCandidate,
+  type CladeCandidate,
+  type CladeHistoryEntry,
+} from '../providers/clade-brain';
 
 // ------------------------------------------------------------------ types
 type Tab = 'hierarchy' | 'candidates' | 'history';
@@ -60,7 +60,7 @@ function HierarchyTab({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/brand/${encodeURIComponent(projectId)}/animation-pipeline`)
+    fetch(`/api/clade/${encodeURIComponent(projectId)}/animation-pipeline`)
       .then((r) => r.json())
       .then((d: { pipeline: Pipeline }) => setPipeline(d.pipeline))
       .catch(() => {});
@@ -69,7 +69,7 @@ function HierarchyTab({
   const handlePipelineChange = async (value: Pipeline) => {
     setSaving(true);
     try {
-      await fetch(`/api/brand/${encodeURIComponent(projectId)}/animation-pipeline`, {
+      await fetch(`/api/clade/${encodeURIComponent(projectId)}/animation-pipeline`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pipeline: value }),
@@ -121,7 +121,7 @@ function CandidatesTab({
   onRefresh,
 }: {
   projectId: string;
-  candidates: BrandCandidate[];
+  candidates: CladeCandidate[];
   onRefresh: () => void;
 }) {
   const [acting, setActing] = useState<string | null>(null);
@@ -129,7 +129,7 @@ function CandidatesTab({
   const handlePromote = useCallback(
     async (id: string) => {
       setActing(id);
-      await promoteBrandCandidate(projectId, id);
+      await promoteCladeCandidate(projectId, id);
       setActing(null);
       onRefresh();
     },
@@ -139,7 +139,7 @@ function CandidatesTab({
   const handleReject = useCallback(
     async (id: string) => {
       setActing(id);
-      await rejectBrandCandidate(projectId, id);
+      await rejectCladeCandidate(projectId, id);
       setActing(null);
       onRefresh();
     },
@@ -188,7 +188,7 @@ function CandidatesTab({
   );
 }
 
-function HistoryTab({ history }: { history: BrandHistoryEntry[] }) {
+function HistoryTab({ history }: { history: CladeHistoryEntry[] }) {
   if (history.length === 0) {
     return (
       <div className="brand-pane-body">
@@ -218,17 +218,17 @@ function HistoryTab({ history }: { history: BrandHistoryEntry[] }) {
 }
 
 // ------------------------------------------------------------------ main
-export function BrandPane({ projectId, projectName }: Props) {
+export function CladePane({ projectId, projectName }: Props) {
   const [tab, setTab] = useState<Tab>('hierarchy');
   const [health, setHealth] = useState(0);
-  const [candidates, setCandidates] = useState<BrandCandidate[]>([]);
-  const [history, setHistory] = useState<BrandHistoryEntry[]>([]);
+  const [candidates, setCandidates] = useState<CladeCandidate[]>([]);
+  const [history, setHistory] = useState<CladeHistoryEntry[]>([]);
 
   const refresh = useCallback(async () => {
     const [h, c, hist] = await Promise.all([
-      fetchBrandHealth(projectId),
-      fetchBrandCandidates(projectId),
-      fetchBrandHistory(projectId),
+      fetchCladeHealth(projectId),
+      fetchCladeCandidates(projectId),
+      fetchCladeHistory(projectId),
     ]);
     setHealth(h.health);
     setCandidates(c);
@@ -248,7 +248,7 @@ export function BrandPane({ projectId, projectName }: Props) {
           className={`brand-pane-tab${tab === 'hierarchy' ? ' active' : ''}`}
           onClick={() => setTab('hierarchy')}
         >
-          Brand
+          Clade Brain
         </button>
         <button
           className={`brand-pane-tab${tab === 'candidates' ? ' active' : ''}`}

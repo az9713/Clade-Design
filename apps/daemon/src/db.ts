@@ -36,6 +36,16 @@ export function closeDatabase() {
 }
 
 function migrate(db) {
+  // Rename legacy brand_ tables to clade_ tables if they still exist (one-time migration).
+  const tableExists = (name) => db.prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`).get(name);
+  if (tableExists('brand_nodes')) db.prepare('ALTER TABLE brand_nodes RENAME TO clade_nodes').run();
+  if (tableExists('brand_fields')) db.prepare('ALTER TABLE brand_fields RENAME TO clade_fields').run();
+  if (tableExists('brand_history')) db.prepare('ALTER TABLE brand_history RENAME TO clade_history').run();
+  if (tableExists('brand_candidates')) db.prepare('ALTER TABLE brand_candidates RENAME TO clade_candidates').run();
+  db.prepare('DROP INDEX IF EXISTS idx_brand_fields_node').run();
+  db.prepare('DROP INDEX IF EXISTS idx_brand_history_node').run();
+  db.prepare('DROP INDEX IF EXISTS idx_brand_candidates_node_status').run();
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -145,19 +155,19 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_deployments_project
       ON deployments(project_id, updated_at DESC);
 
-    CREATE TABLE IF NOT EXISTS brand_nodes (
+    CREATE TABLE IF NOT EXISTS clade_nodes (
       id          TEXT PRIMARY KEY,
       project_id  TEXT REFERENCES projects(id),
-      parent_id   TEXT REFERENCES brand_nodes(id),
+      parent_id   TEXT REFERENCES clade_nodes(id),
       label       TEXT NOT NULL,
       health      INTEGER DEFAULT 0,
       created_at  INTEGER NOT NULL,
       updated_at  INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS brand_fields (
+    CREATE TABLE IF NOT EXISTS clade_fields (
       id          TEXT PRIMARY KEY,
-      node_id     TEXT NOT NULL REFERENCES brand_nodes(id),
+      node_id     TEXT NOT NULL REFERENCES clade_nodes(id),
       section     TEXT NOT NULL,
       key         TEXT NOT NULL,
       value       TEXT NOT NULL,
@@ -170,9 +180,9 @@ function migrate(db) {
       UNIQUE(node_id, section, key)
     );
 
-    CREATE TABLE IF NOT EXISTS brand_history (
+    CREATE TABLE IF NOT EXISTS clade_history (
       id          TEXT PRIMARY KEY,
-      node_id     TEXT NOT NULL REFERENCES brand_nodes(id),
+      node_id     TEXT NOT NULL REFERENCES clade_nodes(id),
       section     TEXT NOT NULL,
       key         TEXT NOT NULL,
       old_value   TEXT,
@@ -183,9 +193,9 @@ function migrate(db) {
       created_at  INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS brand_candidates (
+    CREATE TABLE IF NOT EXISTS clade_candidates (
       id          TEXT PRIMARY KEY,
-      node_id     TEXT NOT NULL REFERENCES brand_nodes(id),
+      node_id     TEXT NOT NULL REFERENCES clade_nodes(id),
       section     TEXT NOT NULL,
       key         TEXT NOT NULL,
       value       TEXT NOT NULL,
@@ -196,12 +206,12 @@ function migrate(db) {
       updated_at  INTEGER NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_brand_fields_node
-      ON brand_fields(node_id, section);
-    CREATE INDEX IF NOT EXISTS idx_brand_history_node
-      ON brand_history(node_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_brand_candidates_node_status
-      ON brand_candidates(node_id, status);
+    CREATE INDEX IF NOT EXISTS idx_clade_fields_node
+      ON clade_fields(node_id, section);
+    CREATE INDEX IF NOT EXISTS idx_clade_history_node
+      ON clade_history(node_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_clade_candidates_node_status
+      ON clade_candidates(node_id, status);
   `);
   // Forward-compatible column add for databases created before metadata_json.
   // SQLite has no IF NOT EXISTS for ALTER, so we check pragma_table_info.
@@ -998,11 +1008,11 @@ export function setTabs(db, projectId, names, activeName) {
   return listTabs(db, projectId);
 }
 
-// ---------- brand-brain ----------
+// ---------- clade-brain ----------
 
-export function insertBrandNode(db, node) {
+export function insertCladeNode(db, node) {
   db.prepare(
-    `INSERT INTO brand_nodes (id, project_id, parent_id, label, health, created_at, updated_at)
+    `INSERT INTO clade_nodes (id, project_id, parent_id, label, health, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     node.id,
@@ -1013,27 +1023,27 @@ export function insertBrandNode(db, node) {
     node.createdAt,
     node.updatedAt,
   );
-  return getBrandNode(db, node.id);
+  return getCladeNode(db, node.id);
 }
 
-export function getBrandNode(db, nodeId) {
+export function getCladeNode(db, nodeId) {
   const row = db
     .prepare(
       `SELECT id, project_id AS projectId, parent_id AS parentId,
               label, health, created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_nodes WHERE id = ?`,
+         FROM clade_nodes WHERE id = ?`,
     )
     .get(nodeId);
   if (!row) return null;
   return { ...row, health: Number(row.health), createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt) };
 }
 
-export function getBrandNodeByProject(db, projectId) {
+export function getCladeNodeByProject(db, projectId) {
   const row = db
     .prepare(
       `SELECT id, project_id AS projectId, parent_id AS parentId,
               label, health, created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_nodes WHERE project_id = ? AND parent_id IS NULL
+         FROM clade_nodes WHERE project_id = ? AND parent_id IS NULL
          ORDER BY created_at ASC LIMIT 1`,
     )
     .get(projectId);
@@ -1041,40 +1051,40 @@ export function getBrandNodeByProject(db, projectId) {
   return { ...row, health: Number(row.health), createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt) };
 }
 
-export function updateBrandNodeHealth(db, nodeId, health) {
+export function updateCladeNodeHealth(db, nodeId, health) {
   db.prepare(
-    `UPDATE brand_nodes SET health = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE clade_nodes SET health = ?, updated_at = ? WHERE id = ?`,
   ).run(health, Date.now(), nodeId);
 }
 
-export function listBrandFields(db, nodeId) {
+export function listCladeFields(db, nodeId) {
   return db
     .prepare(
       `SELECT id, node_id AS nodeId, section, key, value,
               confidence, source, locked, lock_count AS lockCount,
               created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_fields WHERE node_id = ? ORDER BY section, key`,
+         FROM clade_fields WHERE node_id = ? ORDER BY section, key`,
     )
     .all(nodeId)
-    .map(normalizeBrandField);
+    .map(normalizeCladeField);
 }
 
-export function getBrandField(db, nodeId, section, key) {
+export function getCladeField(db, nodeId, section, key) {
   const row = db
     .prepare(
       `SELECT id, node_id AS nodeId, section, key, value,
               confidence, source, locked, lock_count AS lockCount,
               created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_fields WHERE node_id = ? AND section = ? AND key = ?`,
+         FROM clade_fields WHERE node_id = ? AND section = ? AND key = ?`,
     )
     .get(nodeId, section, key);
-  return row ? normalizeBrandField(row) : null;
+  return row ? normalizeCladeField(row) : null;
 }
 
-export function upsertBrandField(db, field) {
+export function upsertCladeField(db, field) {
   const now = Date.now();
   db.prepare(
-    `INSERT INTO brand_fields
+    `INSERT INTO clade_fields
        (id, node_id, section, key, value, confidence, source, locked, lock_count, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(node_id, section, key) DO UPDATE SET
@@ -1097,10 +1107,10 @@ export function upsertBrandField(db, field) {
     field.createdAt ?? now,
     field.updatedAt ?? now,
   );
-  return getBrandField(db, field.nodeId, field.section, field.key);
+  return getCladeField(db, field.nodeId, field.section, field.key);
 }
 
-function normalizeBrandField(row) {
+function normalizeCladeField(row) {
   return {
     id: row.id,
     nodeId: row.nodeId,
@@ -1116,9 +1126,9 @@ function normalizeBrandField(row) {
   };
 }
 
-export function insertBrandHistory(db, entry) {
+export function insertCladeHistory(db, entry) {
   db.prepare(
-    `INSERT INTO brand_history
+    `INSERT INTO clade_history
        (id, node_id, section, key, old_value, new_value, confidence, action, artifact_id, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
@@ -1135,13 +1145,13 @@ export function insertBrandHistory(db, entry) {
   );
 }
 
-export function listBrandHistory(db, nodeId) {
+export function listCladeHistory(db, nodeId) {
   return db
     .prepare(
       `SELECT id, node_id AS nodeId, section, key, old_value AS oldValue,
               new_value AS newValue, confidence, action, artifact_id AS artifactId,
               created_at AS createdAt
-         FROM brand_history WHERE node_id = ? ORDER BY created_at DESC`,
+         FROM clade_history WHERE node_id = ? ORDER BY created_at DESC`,
     )
     .all(nodeId)
     .map((row) => ({
@@ -1157,7 +1167,7 @@ export function getLatestDirectionPick(db, nodeId) {
       `SELECT id, node_id AS nodeId, section, key, old_value AS oldValue,
               new_value AS newValue, confidence, action, artifact_id AS artifactId,
               created_at AS createdAt
-         FROM brand_history
+         FROM clade_history
         WHERE node_id = ? AND action = 'direction_pick'
         ORDER BY rowid DESC
         LIMIT 1`,
@@ -1171,10 +1181,10 @@ export function getLatestDirectionPick(db, nodeId) {
   };
 }
 
-export function listBrandCandidates(db, nodeId, status, { minOccurrences } = {}) {
+export function listCladeCandidates(db, nodeId, status, { minOccurrences } = {}) {
   let sql = `SELECT id, node_id AS nodeId, section, key, value, occurrences, status,
                     artifact_id AS artifactId, created_at AS createdAt, updated_at AS updatedAt
-               FROM brand_candidates WHERE node_id = ?`;
+               FROM clade_candidates WHERE node_id = ?`;
   const params = [nodeId];
   if (status != null) { sql += ` AND status = ?`; params.push(status); }
   if (minOccurrences != null) { sql += ` AND occurrences >= ?`; params.push(minOccurrences); }
@@ -1187,12 +1197,12 @@ export function listBrandCandidates(db, nodeId, status, { minOccurrences } = {})
   }));
 }
 
-export function findBrandCandidateByPattern(db, nodeId, section, key, value) {
+export function findCladeCandidateByPattern(db, nodeId, section, key, value) {
   const row = db
     .prepare(
       `SELECT id, node_id AS nodeId, section, key, value, occurrences, status,
               artifact_id AS artifactId, created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_candidates
+         FROM clade_candidates
         WHERE node_id = ? AND section = ? AND key = ? AND value = ? AND status = 'pending'
         LIMIT 1`,
     )
@@ -1201,16 +1211,16 @@ export function findBrandCandidateByPattern(db, nodeId, section, key, value) {
   return { ...row, occurrences: Number(row.occurrences), createdAt: Number(row.createdAt), updatedAt: Number(row.updatedAt) };
 }
 
-export function incrementBrandCandidateOccurrences(db, id) {
+export function incrementCladeCandidateOccurrences(db, id) {
   db.prepare(
-    `UPDATE brand_candidates SET occurrences = occurrences + 1, updated_at = ? WHERE id = ?`,
+    `UPDATE clade_candidates SET occurrences = occurrences + 1, updated_at = ? WHERE id = ?`,
   ).run(Date.now(), id);
 }
 
-export function upsertBrandCandidate(db, candidate) {
+export function upsertCladeCandidate(db, candidate) {
   const now = Date.now();
   db.prepare(
-    `INSERT INTO brand_candidates
+    `INSERT INTO clade_candidates
        (id, node_id, section, key, value, occurrences, status, artifact_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
@@ -1230,18 +1240,18 @@ export function upsertBrandCandidate(db, candidate) {
   );
 }
 
-export function updateBrandCandidateStatus(db, id, status) {
+export function updateCladeCandidateStatus(db, id, status) {
   db.prepare(
-    `UPDATE brand_candidates SET status = ?, updated_at = ? WHERE id = ?`,
+    `UPDATE clade_candidates SET status = ?, updated_at = ? WHERE id = ?`,
   ).run(status, Date.now(), id);
 }
 
-export function getBrandCandidate(db, id) {
+export function getCladeCandidate(db, id) {
   const row = db
     .prepare(
       `SELECT id, node_id AS nodeId, section, key, value, occurrences, status,
               artifact_id AS artifactId, created_at AS createdAt, updated_at AS updatedAt
-         FROM brand_candidates WHERE id = ?`,
+         FROM clade_candidates WHERE id = ?`,
     )
     .get(id);
   if (!row) return null;

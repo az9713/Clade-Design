@@ -413,7 +413,7 @@ export async function checkDirectionAdvisor(
 ): Promise<DirectionCheckResult> {
   try {
     const qs = new URLSearchParams({ message });
-    const resp = await fetch(`/api/brand/${encodeURIComponent(projectId)}/directions?${qs}`);
+    const resp = await fetch(`/api/clade/${encodeURIComponent(projectId)}/directions?${qs}`);
     if (!resp.ok) return { advisorFired: false, directions: [] };
     return (await resp.json()) as DirectionCheckResult;
   } catch {
@@ -427,7 +427,7 @@ export async function postDirectionPick(
 ): Promise<void> {
   try {
     await fetch(
-      `/api/brand/${encodeURIComponent(projectId)}/direction/${encodeURIComponent(philosophyId)}`,
+      `/api/clade/${encodeURIComponent(projectId)}/direction/${encodeURIComponent(philosophyId)}`,
       { method: 'POST' },
     );
   } catch {

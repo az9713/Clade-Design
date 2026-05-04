@@ -95,14 +95,14 @@ export interface ComposeInput {
   // (letter-spacing, accent caps, anti-slop) cover everything below.
   craftBody?: string | undefined;
   craftSections?: string[] | undefined;
-  // Live brand-brain snapshot (Layer 3). When present, replaces the static
+  // Live Clade Brain snapshot (Layer 3). When present, replaces the static
   // designSystemBody. Only injected when the project has at least one field
   // with confidence >= 0.5 so the agent never sees a "(no data yet)" skeleton.
-  brandBrainSnapshot?: string | undefined;
+  cladeBrainSnapshot?: string | undefined;
   // Controls whether the active skill wants the brand snapshot injected.
   // 'auto' (default) and 'conditional' both inject when a snapshot is available.
   // 'never' means the skill manages its own token layer — skip Layer 3 entirely.
-  brandBrainInjection?: 'auto' | 'conditional' | 'never' | undefined;
+  cladeBrainInjection?: 'auto' | 'conditional' | 'never' | undefined;
   // Direction philosophy block (Layer 6). Sourced from
   // craft/huashu-references/design-styles.md via the direction advisor.
   // Empty in Phase 3 — wired through so Phase 4 can populate it without
@@ -127,8 +127,8 @@ export function composeSystemPrompt({
   designSystemTitle,
   craftBody,
   craftSections,
-  brandBrainSnapshot,
-  brandBrainInjection,
+  cladeBrainSnapshot,
+  cladeBrainInjection,
   directionPhilosophy,
   metadata,
   template,
@@ -145,13 +145,13 @@ export function composeSystemPrompt({
 
   // Layer 3: brand context. Skipped entirely when the active skill sets
   // injection:'never' (skill manages its own token layer). Otherwise, live
-  // brand-brain snapshot takes precedence over static DESIGN.md.
-  const skipBrandLayer = brandBrainInjection === 'never';
-  if (!skipBrandLayer && brandBrainSnapshot && brandBrainSnapshot.trim().length > 0) {
+  // Clade Brain snapshot takes precedence over static DESIGN.md.
+  const skipCladeLayer = cladeBrainInjection === 'never';
+  if (!skipCladeLayer && cladeBrainSnapshot && cladeBrainSnapshot.trim().length > 0) {
     parts.push(
-      `\n\n## Active brand context\n\nThis is the live brand-brain snapshot for this project — tokens curated from real artifacts and validated by the human reviewer. Treat these as authoritative for color, typography, spacing, and component rules. Do not invent tokens outside this palette. When you copy the active skill's seed template, bind these tokens into its \`:root\` block before generating any layout.\n\n${brandBrainSnapshot.trim()}`,
+      `\n\n## Active brand context\n\nThis is the live Clade Brain snapshot for this project — tokens curated from real artifacts and validated by the human reviewer. Treat these as authoritative for color, typography, spacing, and component rules. Do not invent tokens outside this palette. When you copy the active skill's seed template, bind these tokens into its \`:root\` block before generating any layout.\n\n${cladeBrainSnapshot.trim()}`,
     );
-  } else if (!skipBrandLayer && designSystemBody && designSystemBody.trim().length > 0) {
+  } else if (!skipCladeLayer && designSystemBody && designSystemBody.trim().length > 0) {
     parts.push(
       `\n\n## Active design system${designSystemTitle ? ` — ${designSystemTitle}` : ''}\n\nTreat the following DESIGN.md as authoritative for color, typography, spacing, and component rules. Do not invent tokens outside this palette. When you copy the active skill's seed template, bind these tokens into its \`:root\` block before generating any layout.\n\n${designSystemBody.trim()}`,
     );

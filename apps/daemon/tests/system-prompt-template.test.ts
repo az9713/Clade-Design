@@ -184,10 +184,10 @@ describe('composeSystemPrompt — metadata.promptTemplate', () => {
   });
 });
 
-describe('composeSystemPrompt — brandBrainSnapshot', () => {
+describe('composeSystemPrompt — cladeBrainSnapshot', () => {
   it('injects brand snapshot at Layer 3 when present', () => {
     const snapshot = '# My Brand\n\n## colors\n  primary: #E8372A\n';
-    const out = composeSystemPrompt({ brandBrainSnapshot: snapshot });
+    const out = composeSystemPrompt({ cladeBrainSnapshot: snapshot });
     expect(out).toContain('## Active brand context');
     expect(out).toContain('primary: #E8372A');
   });
@@ -198,13 +198,13 @@ describe('composeSystemPrompt — brandBrainSnapshot', () => {
   });
 
   it('omits brand context block when snapshot is whitespace only', () => {
-    const out = composeSystemPrompt({ brandBrainSnapshot: '   ' });
+    const out = composeSystemPrompt({ cladeBrainSnapshot: '   ' });
     expect(out).not.toContain('## Active brand context');
   });
 
   it('brand snapshot takes precedence over designSystemBody', () => {
     const out = composeSystemPrompt({
-      brandBrainSnapshot: '# Brand\n\n## colors\n  accent: #FF6B00\n',
+      cladeBrainSnapshot: '# Brand\n\n## colors\n  accent: #FF6B00\n',
       designSystemBody: '# Static DS\n\n## colors\n  primary: #123456\n',
       designSystemTitle: 'Legacy DS',
     });
@@ -237,34 +237,34 @@ describe('composeSystemPrompt — brandBrainSnapshot', () => {
   });
 });
 
-describe('composeSystemPrompt — brandBrainInjection', () => {
+describe('composeSystemPrompt — cladeBrainInjection', () => {
   const snapshot = '# Brand\n\n## colors\n  primary: #E8372A\n';
   const dsBody = '# Static DS\n\n## colors\n  primary: #123456\n';
 
   it('injection: never skips brand snapshot even when present', () => {
-    const out = composeSystemPrompt({ brandBrainSnapshot: snapshot, brandBrainInjection: 'never' });
+    const out = composeSystemPrompt({ cladeBrainSnapshot: snapshot, cladeBrainInjection: 'never' });
     expect(out).not.toContain('## Active brand context');
     expect(out).not.toContain('#E8372A');
   });
 
   it('injection: never also skips designSystemBody fallback', () => {
-    const out = composeSystemPrompt({ designSystemBody: dsBody, brandBrainInjection: 'never' });
+    const out = composeSystemPrompt({ designSystemBody: dsBody, cladeBrainInjection: 'never' });
     expect(out).not.toContain('## Active design system');
     expect(out).not.toContain('#123456');
   });
 
   it('injection: auto (default) renders brand snapshot', () => {
-    const out = composeSystemPrompt({ brandBrainSnapshot: snapshot, brandBrainInjection: 'auto' });
+    const out = composeSystemPrompt({ cladeBrainSnapshot: snapshot, cladeBrainInjection: 'auto' });
     expect(out).toContain('## Active brand context');
   });
 
   it('injection: conditional renders brand snapshot (same as auto in V1)', () => {
-    const out = composeSystemPrompt({ brandBrainSnapshot: snapshot, brandBrainInjection: 'conditional' });
+    const out = composeSystemPrompt({ cladeBrainSnapshot: snapshot, cladeBrainInjection: 'conditional' });
     expect(out).toContain('## Active brand context');
   });
 
-  it('omitting brandBrainInjection renders brand snapshot by default', () => {
-    const out = composeSystemPrompt({ brandBrainSnapshot: snapshot });
+  it('omitting cladeBrainInjection renders brand snapshot by default', () => {
+    const out = composeSystemPrompt({ cladeBrainSnapshot: snapshot });
     expect(out).toContain('## Active brand context');
   });
 });

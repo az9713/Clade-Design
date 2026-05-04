@@ -13,9 +13,9 @@ import {
   type DirectionOption,
 } from '../providers/daemon';
 import { DirectionPicker } from './DirectionPicker';
-import { BrandPane } from './BrandPane';
+import { CladePane } from './CladePane';
 import { BootstrapScreen } from './BootstrapScreen';
-import { fetchBrandHealth, fetchBrandHistory } from '../providers/brand';
+import { fetchCladeHealth, fetchCladeHistory } from '../providers/clade-brain';
 import {
   deletePreviewComment,
   fetchPreviewComments,
@@ -198,13 +198,13 @@ export function ProjectView({
     };
   }, [project.id]);
 
-  // Show bootstrap screen when the brand-brain is completely empty.
+  // Show bootstrap screen when the Clade Brain is completely empty.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const [health, history] = await Promise.all([
-        fetchBrandHealth(project.id),
-        fetchBrandHistory(project.id),
+        fetchCladeHealth(project.id),
+        fetchCladeHistory(project.id),
       ]);
       if (cancelled) return;
       if (health.health === 0 && history.length === 0) {
@@ -1316,7 +1316,7 @@ export function ProjectView({
         </div>
       </AppChromeHeader>
       <div className="app-body">
-      <BrandPane projectId={project.id} projectName={project.name} />
+      <CladePane projectId={project.id} projectName={project.name} />
       <div className="split">
         <ChatPane
           // The conversation id is part of the key so switching conversations

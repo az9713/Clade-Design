@@ -3,7 +3,7 @@ import {
   bootstrapSeed,
   fetchDesignSystemList,
   type DesignSystemCard,
-} from '../providers/brand';
+} from '../providers/clade-brain';
 
 interface Props {
   projectId: string;
@@ -76,7 +76,7 @@ export function BootstrapScreen({ projectId, onComplete }: Props) {
         {/* Header */}
         <div className="border-b border-gray-100 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">
-            Set up your brand-brain
+            Set up your Clade Brain
           </h2>
           <p className="mt-0.5 text-sm text-gray-500">
             Choose how to seed your brand identity, or skip to start blank.
@@ -124,7 +124,7 @@ export function BootstrapScreen({ projectId, onComplete }: Props) {
               <div className="relative">
                 {loading && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80">
-                    <span className="text-sm text-gray-500">Seeding brand-brain…</span>
+                    <span className="text-sm text-gray-500">Seeding Clade Brain…</span>
                   </div>
                 )}
                 <div className="grid grid-cols-3 gap-3">
@@ -193,7 +193,7 @@ export function BootstrapScreen({ projectId, onComplete }: Props) {
             onClick={onComplete}
             className="text-sm text-gray-500 hover:text-gray-900"
           >
-            Skip — start with empty brand-brain
+            Skip — start with empty Clade Brain
           </button>
         </div>
       </div>

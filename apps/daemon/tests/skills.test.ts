@@ -19,61 +19,61 @@ beforeAll(async () => {
 
   await writeSkill('no-bb', 'name: no-bb\ndescription: plain skill');
 
-  await writeSkill('bb-never', `name: bb-never\ndescription: self-contained\nod:\n  brand_brain:\n    injection: never`);
+  await writeSkill('bb-never', `name: bb-never\ndescription: self-contained\nod:\n  clade_brain:\n    injection: never`);
 
-  await writeSkill('bb-conditional', `name: bb-conditional\ndescription: conditional injection\nod:\n  brand_brain:\n    injection: conditional`);
+  await writeSkill('bb-conditional', `name: bb-conditional\ndescription: conditional injection\nod:\n  clade_brain:\n    injection: conditional`);
 
-  await writeSkill('bb-unknown', `name: bb-unknown\ndescription: unknown injection value\nod:\n  brand_brain:\n    injection: maybe`);
+  await writeSkill('bb-unknown', `name: bb-unknown\ndescription: unknown injection value\nod:\n  clade_brain:\n    injection: maybe`);
 
-  await writeSkill('bb-dir', `name: bb-dir\ndescription: manages direction\nod:\n  brand_brain:\n    manages_direction: true`);
+  await writeSkill('bb-dir', `name: bb-dir\ndescription: manages direction\nod:\n  clade_brain:\n    manages_direction: true`);
 
-  await writeSkill('bb-no-dir', `name: bb-no-dir\ndescription: does not manage direction\nod:\n  brand_brain:\n    manages_direction: false`);
+  await writeSkill('bb-no-dir', `name: bb-no-dir\ndescription: does not manage direction\nod:\n  clade_brain:\n    manages_direction: false`);
 });
 
 afterAll(async () => {
   if (skillsDir) await rm(skillsDir, { recursive: true, force: true });
 });
 
-describe('listSkills — brand_brain frontmatter', () => {
-  it('defaults brandBrainInjection to auto when field is absent', async () => {
+describe('listSkills — clade_brain frontmatter', () => {
+  it('defaults cladeBrainInjection to auto when field is absent', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'no-bb');
-    expect(s.brandBrainInjection).toBe('auto');
+    expect(s.cladeBrainInjection).toBe('auto');
   });
 
   it('parses injection: never', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'bb-never');
-    expect(s.brandBrainInjection).toBe('never');
+    expect(s.cladeBrainInjection).toBe('never');
   });
 
   it('parses injection: conditional', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'bb-conditional');
-    expect(s.brandBrainInjection).toBe('conditional');
+    expect(s.cladeBrainInjection).toBe('conditional');
   });
 
   it('falls back to auto for unrecognised injection values', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'bb-unknown');
-    expect(s.brandBrainInjection).toBe('auto');
+    expect(s.cladeBrainInjection).toBe('auto');
   });
 
-  it('defaults brandBrainManagesDirection to false when absent', async () => {
+  it('defaults cladeBrainManagesDirection to false when absent', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'no-bb');
-    expect(s.brandBrainManagesDirection).toBe(false);
+    expect(s.cladeBrainManagesDirection).toBe(false);
   });
 
   it('parses manages_direction: true', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'bb-dir');
-    expect(s.brandBrainManagesDirection).toBe(true);
+    expect(s.cladeBrainManagesDirection).toBe(true);
   });
 
   it('parses manages_direction: false explicitly', async () => {
     const skills = await listSkills(skillsDir);
     const s = skills.find((x) => x.id === 'bb-no-dir');
-    expect(s.brandBrainManagesDirection).toBe(false);
+    expect(s.cladeBrainManagesDirection).toBe(false);
   });
 });

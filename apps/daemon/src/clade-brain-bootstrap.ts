@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { randomUUID } from 'node:crypto';
-import { upsertBrandField, insertBrandHistory, updateBrandNodeHealth } from './db.js';
-import { getHealthScore } from './brand-brain.js';
+import { upsertCladeField, insertCladeHistory, updateCladeNodeHealth } from './db.js';
+import { getCladeHealthScore } from './clade-brain.js';
 
-// DESIGN.md section number → brand-brain section name
+// DESIGN.md section number → clade-brain section name
 const SECTION_MAP = {
   1: 'atmosphere',   // 1. Visual Theme & Atmosphere
   2: 'colors',       // 2. Color Palette & Roles
@@ -45,7 +45,7 @@ function toCamelCase(str) {
 }
 
 /**
- * Determine the brand-brain section for a DESIGN.md heading line.
+ * Determine the clade-brain section for a DESIGN.md heading line.
  * First tries numbered prefix (e.g. "## 1. Visual..."), then keyword fallback.
  */
 function headingToSection(headingText) {
@@ -185,15 +185,15 @@ function extractBullets(content) {
 }
 
 /**
- * Seed a brand node from a DESIGN.md string (Bootstrap Path A).
+ * Seed a clade node from a DESIGN.md string (Bootstrap Path A).
  *
  * @param {object} db        - better-sqlite3 Database instance
- * @param {string} nodeId    - brand node UUID
+ * @param {string} nodeId    - clade node UUID
  * @param {string} content   - raw DESIGN.md text
  * @param {string} systemId  - design system ID (for history entry)
  * @returns {number}         - health score after seeding
  */
-export function seedFromDesignMd(db, nodeId, content, systemId) {
+export function seedCladeFromDesignMd(db, nodeId, content, systemId) {
   const now = Date.now();
   const sections = splitDesignMdSections(content);
 
@@ -213,7 +213,7 @@ export function seedFromDesignMd(db, nodeId, content, systemId) {
     }
 
     for (const { key, value } of fields) {
-      upsertBrandField(db, {
+      upsertCladeField(db, {
         id: randomUUID(),
         nodeId,
         section,
@@ -230,7 +230,7 @@ export function seedFromDesignMd(db, nodeId, content, systemId) {
   }
 
   // Write a single import history entry
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section: 'meta',
@@ -243,7 +243,7 @@ export function seedFromDesignMd(db, nodeId, content, systemId) {
   });
 
   // Recalculate and persist health
-  const health = getHealthScore(db, nodeId);
+  const health = getCladeHealthScore(db, nodeId);
   return health;
 }
 
@@ -258,14 +258,14 @@ export function seedFromDesignMd(db, nodeId, content, systemId) {
  *   ...
  *
  * @param {object} db      - better-sqlite3 Database instance
- * @param {string} nodeId  - brand node UUID
+ * @param {string} nodeId  - clade node UUID
  * @param {string} content - brand-spec.md text
  * @returns {number}       - health score after parsing
  */
-export function parseBrandSpec(db, nodeId, content) {
+export function parseCladeSpec(db, nodeId, content) {
   const now = Date.now();
 
-  // Map section headings to brand-brain sections (case-insensitive)
+  // Map section headings to clade-brain sections (case-insensitive)
   function mapSection(name) {
     const n = name.trim().toLowerCase();
     if (n === 'colors' || n === 'colour' || n === 'colors') return 'colors';
@@ -304,7 +304,7 @@ export function parseBrandSpec(db, nodeId, content) {
       const value = lm[2].trim().slice(0, 200);
       if (!key || !value) continue;
 
-      upsertBrandField(db, {
+      upsertCladeField(db, {
         id: randomUUID(),
         nodeId,
         section,
@@ -321,7 +321,7 @@ export function parseBrandSpec(db, nodeId, content) {
   }
 
   // Write import history entry
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section: 'meta',
@@ -333,23 +333,23 @@ export function parseBrandSpec(db, nodeId, content) {
     createdAt: now,
   });
 
-  const health = getHealthScore(db, nodeId);
+  const health = getCladeHealthScore(db, nodeId);
   return health;
 }
 
 /**
- * Delete all brand_fields for a node and reset health to 0.
+ * Delete all clade_fields for a node and reset health to 0.
  * Used before re-seeding to avoid stale data.
  *
  * @param {object} db      - better-sqlite3 Database instance
- * @param {string} nodeId  - brand node UUID
+ * @param {string} nodeId  - clade node UUID
  */
-export function clearBrandNodeFields(db, nodeId) {
+export function clearCladeNodeFields(db, nodeId) {
   const now = Date.now();
   const tx = db.transaction(() => {
-    db.prepare('DELETE FROM brand_fields WHERE node_id = ?').run(nodeId);
-    db.prepare('DELETE FROM brand_candidates WHERE node_id = ?').run(nodeId);
-    insertBrandHistory(db, {
+    db.prepare('DELETE FROM clade_fields WHERE node_id = ?').run(nodeId);
+    db.prepare('DELETE FROM clade_candidates WHERE node_id = ?').run(nodeId);
+    insertCladeHistory(db, {
       id: randomUUID(),
       nodeId,
       section: 'meta',
@@ -360,7 +360,7 @@ export function clearBrandNodeFields(db, nodeId) {
       action: 'reset',
       createdAt: now,
     });
-    updateBrandNodeHealth(db, nodeId, 0);
+    updateCladeNodeHealth(db, nodeId, 0);
   });
   tx();
 }

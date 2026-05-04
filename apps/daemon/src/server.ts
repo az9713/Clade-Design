@@ -38,18 +38,18 @@ import { lintArtifact, renderFindingsForAgent } from './lint-artifact.js';
 import { loadCraftSections } from './craft.js';
 import {
   applyExtractedPatterns,
-  createBrandNode,
+  createCladeNode,
   exportCladeJson,
   exportDesignMd,
-  getBrandSnapshot,
-  getHealthScore,
-  promoteBrandCandidate,
-  rejectBrandCandidate,
+  getCladeSnapshot,
+  getCladeHealthScore,
+  promoteCladeCandidate,
+  rejectCladeCandidate,
   recordDirectionPick,
   getActiveDirectionPhilosophy,
-} from './brand-brain.js';
+} from './clade-brain.js';
 import { parseDesignStyles, detectVagueBrief, selectDirections } from './direction-advisor.js';
-import { seedFromDesignMd, parseBrandSpec, clearBrandNodeFields } from './brand-brain-bootstrap.js';
+import { seedCladeFromDesignMd, parseCladeSpec, clearCladeNodeFields } from './clade-brain-bootstrap.js';
 import {
   getAnimationPipeline,
   setAnimationPipeline,
@@ -126,11 +126,11 @@ import {
   upsertDeployment,
   upsertMessage,
   upsertPreviewComment,
-  getBrandNodeByProject,
-  listBrandCandidates,
-  listBrandFields,
-  listBrandHistory,
-  upsertBrandCandidate,
+  getCladeNodeByProject,
+  listCladeCandidates,
+  listCladeFields,
+  listCladeHistory,
+  upsertCladeCandidate,
 } from './db.js';
 import {
   buildDeployFileSet,
@@ -708,8 +708,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
         createdAt: now,
         updatedAt: now,
       });
-      // Seed a brand-brain node for this project.
-      createBrandNode(db, id, name.trim());
+      // Seed a Clade Brain node for this project.
+      createCladeNode(db, id, name.trim());
       // For "from template" projects, seed the chosen template's snapshot
       // HTML into the new project folder so the agent can Read/edit files
       // on disk (the system prompt also embeds them, but a real on-disk
@@ -1667,7 +1667,7 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
 
       task.status = 'running';
 
-      // For video generation: check brand-brain animation pipeline preference.
+      // For video generation: check Clade Brain animation pipeline preference.
       // Pre-fill brand context into cloud prompts for any surface.
       const surface = req.body?.surface;
       const brandContext = getBrandPromptContext(db, projectId);
@@ -1919,8 +1919,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     let skillName;
     let skillMode;
     let skillCraftRequires = [];
-    let skillBrandBrainInjection = 'auto';
-    let skillBrandBrainManagesDirection = false;
+    let skillCladeBrainInjection = 'auto';
+    let skillCladeBrainManagesDirection = false;
     if (effectiveSkillId) {
       const skill = (await listSkills(SKILLS_DIR)).find((s) => s.id === effectiveSkillId);
       if (skill) {
@@ -1928,8 +1928,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
         skillName = skill.name;
         skillMode = skill.mode;
         if (Array.isArray(skill.craftRequires)) skillCraftRequires = skill.craftRequires;
-        if (skill.brandBrainInjection) skillBrandBrainInjection = skill.brandBrainInjection;
-        if (skill.brandBrainManagesDirection) skillBrandBrainManagesDirection = true;
+        if (skill.cladeBrainInjection) skillCladeBrainInjection = skill.cladeBrainInjection;
+        if (skill.cladeBrainManagesDirection) skillCladeBrainManagesDirection = true;
       }
     }
 
@@ -1943,20 +1943,20 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
       }
     }
 
-    let brandBrainSnapshot;
+    let cladeBrainSnapshot;
     let directionPhilosophy;
-    const brandNode = typeof projectId === 'string' && projectId
-      ? getBrandNodeByProject(db, projectId)
+    const cladeNode = typeof projectId === 'string' && projectId
+      ? getCladeNodeByProject(db, projectId)
       : null;
-    if (brandNode) {
-      const fields = listBrandFields(db, brandNode.id);
+    if (cladeNode) {
+      const fields = listCladeFields(db, cladeNode.id);
       if (fields.some((f) => f.confidence >= 0.5 && !f.locked)) {
-        brandBrainSnapshot = exportDesignMd(db, brandNode.id);
+        cladeBrainSnapshot = exportDesignMd(db, cladeNode.id);
       }
       // Inject Layer 6 unless the skill manages its own direction.
-      if (!skillBrandBrainManagesDirection) {
+      if (!skillCladeBrainManagesDirection) {
         const philosophies = getPhilosophies(CRAFT_DIR);
-        const activeDir = getActiveDirectionPhilosophy(db, brandNode.id, philosophies);
+        const activeDir = getActiveDirectionPhilosophy(db, cladeNode.id, philosophies);
         if (activeDir) directionPhilosophy = activeDir.dnaBlock;
       }
     }
@@ -1969,8 +1969,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
       skillBody,
       skillName,
       skillMode,
-      brandBrainSnapshot,
-      brandBrainInjection: skillBrandBrainInjection,
+      cladeBrainSnapshot,
+      cladeBrainInjection: skillCladeBrainInjection,
       directionPhilosophy,
       craftBody,
       craftSections,
@@ -2258,14 +2258,14 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
           : 'failed';
       design.runs.finish(run, status, code, signal);
 
-      // Brand-brain pattern extraction: fires 30s after a successful run.
+      // Clade Brain pattern extraction: fires 30s after a successful run.
       // Grace period lets the user reject the artifact before patterns are recorded.
       if (status === 'succeeded' && typeof projectId === 'string' && projectId && cwd) {
         const preRunNames = new Set(existingProjectFiles.map((f) => f.name));
         const runId = run.id;
         const timer = setTimeout(async () => {
           try {
-            const node = getBrandNodeByProject(db, projectId);
+            const node = getCladeNodeByProject(db, projectId);
             if (!node) return;
             const currentFiles = await listFiles(PROJECTS_DIR, projectId);
             const newHtmlFiles = currentFiles.filter(
@@ -2290,7 +2290,7 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
             }
             applyExtractedPatterns(db, node.id, Array.from(seen.values()), runId);
           } catch (err) {
-            console.error('[brand-brain] pattern extraction failed:', err.message);
+            console.error('[clade-brain] pattern extraction failed:', err.message);
           }
         }, 30_000);
         timer.unref?.();
@@ -2529,56 +2529,56 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // ---------- brand-brain endpoints ----------
+  // ---------- clade-brain endpoints ----------
 
-  app.get('/api/brand/:projectId/snapshot', (req, res) => {
+  app.get('/api/clade/:projectId/snapshot', (req, res) => {
     try {
-      const snapshot = getBrandSnapshot(db, req.params.projectId);
+      const snapshot = getCladeSnapshot(db, req.params.projectId);
       res.json(snapshot);
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  app.get('/api/brand/:projectId/health', (req, res) => {
+  app.get('/api/clade/:projectId/health', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
       if (!node) return res.json({ health: 0 });
-      const health = getHealthScore(db, node.id);
+      const health = getCladeHealthScore(db, node.id);
       res.json({ health });
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  app.get('/api/brand/:projectId/candidates', (req, res) => {
+  app.get('/api/clade/:projectId/candidates', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
       if (!node) return res.json([]);
       // Only surface candidates with >= 3 occurrences in the governance queue
-      const candidates = listBrandCandidates(db, node.id, 'pending', { minOccurrences: 3 });
+      const candidates = listCladeCandidates(db, node.id, 'pending', { minOccurrences: 3 });
       res.json(candidates);
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  app.get('/api/brand/:projectId/history', (req, res) => {
+  app.get('/api/clade/:projectId/history', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
       if (!node) return res.json([]);
-      const history = listBrandHistory(db, node.id);
+      const history = listCladeHistory(db, node.id);
       res.json(history);
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  app.post('/api/brand/:projectId/promote/:candidateId', (req, res) => {
+  app.post('/api/clade/:projectId/promote/:candidateId', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
-      const result = promoteBrandCandidate(db, node.id, req.params.candidateId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
+      const result = promoteCladeCandidate(db, node.id, req.params.candidateId);
       if (!result) return sendApiError(res, 404, 'NOT_FOUND', 'candidate not found');
       res.json(result);
     } catch (err) {
@@ -2586,11 +2586,11 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  app.post('/api/brand/:projectId/reject/:candidateId', (req, res) => {
+  app.post('/api/clade/:projectId/reject/:candidateId', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
-      const result = rejectBrandCandidate(db, node.id, req.params.candidateId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
+      const result = rejectCladeCandidate(db, node.id, req.params.candidateId);
       if (!result) return sendApiError(res, 404, 'NOT_FOUND', 'candidate not found');
       res.json(result);
     } catch (err) {
@@ -2598,10 +2598,10 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  app.get('/api/brand/:projectId/export', (req, res) => {
+  app.get('/api/clade/:projectId/export', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
       const format = req.query.format;
       if (format === 'clade-json') {
         return res.json(exportCladeJson(db, node.id));
@@ -2613,16 +2613,16 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // GET /api/brand/:projectId/directions
+  // GET /api/clade/:projectId/directions
   // Returns the 3 candidate directions when a vague brief is detected.
   // Query param: ?message=<user brief>
-  app.get('/api/brand/:projectId/directions', (req, res) => {
+  app.get('/api/clade/:projectId/directions', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
+      const node = getCladeNodeByProject(db, req.params.projectId);
       const message = typeof req.query.message === 'string' ? req.query.message : '';
-      const health = node ? getHealthScore(db, node.id) : 0;
+      const health = node ? getCladeHealthScore(db, node.id) : 0;
       const philosophies = getPhilosophies(CRAFT_DIR);
-      const history = node ? listBrandHistory(db, node.id) : [];
+      const history = node ? listCladeHistory(db, node.id) : [];
       const priorPicks = history
         .filter((h) => h.action === 'direction_pick')
         .map((h) => {
@@ -2643,12 +2643,12 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // POST /api/brand/:projectId/direction/:philosophyId
+  // POST /api/clade/:projectId/direction/:philosophyId
   // Records the user's direction pick at confidence 0.85.
-  app.post('/api/brand/:projectId/direction/:philosophyId', (req, res) => {
+  app.post('/api/clade/:projectId/direction/:philosophyId', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
       const philosophies = getPhilosophies(CRAFT_DIR);
       const philosophy = philosophies.find((p) => p.id === req.params.philosophyId);
       if (!philosophy) return sendApiError(res, 404, 'NOT_FOUND', 'philosophy not found');
@@ -2659,54 +2659,54 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // POST /api/brand/:projectId/bootstrap/seed
-  // Seeds the brand-brain from a design system's DESIGN.md (Bootstrap Path A).
-  app.post('/api/brand/:projectId/bootstrap/seed', async (req, res) => {
+  // POST /api/clade/:projectId/bootstrap/seed
+  // Seeds the Clade Brain from a design system's DESIGN.md (Bootstrap Path A).
+  app.post('/api/clade/:projectId/bootstrap/seed', async (req, res) => {
     try {
       const { designSystemId } = req.body ?? {};
       if (!designSystemId || typeof designSystemId !== 'string') {
         return sendApiError(res, 400, 'BAD_REQUEST', 'designSystemId is required');
       }
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
       const content = await readDesignSystem(DESIGN_SYSTEMS_DIR, designSystemId);
       if (!content) return sendApiError(res, 404, 'NOT_FOUND', 'design system not found');
-      clearBrandNodeFields(db, node.id);
-      const health = seedFromDesignMd(db, node.id, content, designSystemId);
+      clearCladeNodeFields(db, node.id);
+      const health = seedCladeFromDesignMd(db, node.id, content, designSystemId);
       res.json({ health });
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  // POST /api/brand/:projectId/bootstrap/clear
-  // Clears all brand fields and resets health to 0.
-  app.post('/api/brand/:projectId/bootstrap/clear', (req, res) => {
+  // POST /api/clade/:projectId/bootstrap/clear
+  // Clears all clade fields and resets health to 0.
+  app.post('/api/clade/:projectId/bootstrap/clear', (req, res) => {
     try {
-      const node = getBrandNodeByProject(db, req.params.projectId);
-      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
-      clearBrandNodeFields(db, node.id);
+      const node = getCladeNodeByProject(db, req.params.projectId);
+      if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
+      clearCladeNodeFields(db, node.id);
       res.json({ ok: true });
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));
     }
   });
 
-  // POST /api/brand/:projectId/candidates/fixture
+  // POST /api/clade/:projectId/candidates/fixture
   // Test-only endpoint: inserts a candidate with a controllable occurrences count.
   // Only active when OD_ALLOW_TEST_FIXTURES=1 — never registers in production.
   if (process.env.OD_ALLOW_TEST_FIXTURES === '1') {
-    app.post('/api/brand/:projectId/candidates/fixture', (req, res) => {
+    app.post('/api/clade/:projectId/candidates/fixture', (req, res) => {
       try {
-        const node = getBrandNodeByProject(db, req.params.projectId);
-        if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'brand node not found');
+        const node = getCladeNodeByProject(db, req.params.projectId);
+        if (!node) return sendApiError(res, 404, 'NOT_FOUND', 'clade node not found');
         const { section, key, value, occurrences = 5 } = req.body ?? {};
         if (!section || !key || !value) {
           return sendApiError(res, 400, 'BAD_REQUEST', 'section, key, and value are required');
         }
         const now = Date.now();
         const id = randomId();
-        upsertBrandCandidate(db, {
+        upsertCladeCandidate(db, {
           id,
           nodeId: node.id,
           section,
@@ -2725,8 +2725,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     });
   }
 
-  // GET /api/brand/:projectId/animation-pipeline
-  app.get('/api/brand/:projectId/animation-pipeline', (req, res) => {
+  // GET /api/clade/:projectId/animation-pipeline
+  app.get('/api/clade/:projectId/animation-pipeline', (req, res) => {
     try {
       const pipeline = getAnimationPipeline(db, req.params.projectId);
       res.json({ pipeline });
@@ -2735,8 +2735,8 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // PUT /api/brand/:projectId/animation-pipeline  body: { pipeline: 'local'|'cloud'|'ask' }
-  app.put('/api/brand/:projectId/animation-pipeline', (req, res) => {
+  // PUT /api/clade/:projectId/animation-pipeline  body: { pipeline: 'local'|'cloud'|'ask' }
+  app.put('/api/clade/:projectId/animation-pipeline', (req, res) => {
     try {
       const { pipeline } = req.body ?? {};
       if (!['local', 'cloud', 'ask'].includes(pipeline)) {
@@ -2749,9 +2749,9 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
-  // GET /api/brand/:projectId/animation-pipeline/check-local
+  // GET /api/clade/:projectId/animation-pipeline/check-local
   // Returns whether the local huashu pipeline is available on this machine.
-  app.get('/api/brand/:projectId/animation-pipeline/check-local', async (_req, res) => {
+  app.get('/api/clade/:projectId/animation-pipeline/check-local', async (_req, res) => {
     try {
       const result = await checkLocalPipelineAvailable(HUASHU_SCRIPTS_DIR);
       res.json(result);

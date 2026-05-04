@@ -1,25 +1,25 @@
 // @ts-nocheck
 import { randomUUID } from 'node:crypto';
 import {
-  getBrandNodeByProject,
-  getBrandNode,
-  insertBrandNode,
-  updateBrandNodeHealth,
-  listBrandFields,
-  getBrandField,
-  upsertBrandField,
-  insertBrandHistory,
-  listBrandHistory,
-  listBrandCandidates,
-  updateBrandCandidateStatus,
-  getBrandCandidate,
-  upsertBrandCandidate,
-  findBrandCandidateByPattern,
-  incrementBrandCandidateOccurrences,
+  getCladeNodeByProject,
+  getCladeNode,
+  insertCladeNode,
+  updateCladeNodeHealth,
+  listCladeFields,
+  getCladeField,
+  upsertCladeField,
+  insertCladeHistory,
+  listCladeHistory,
+  listCladeCandidates,
+  updateCladeCandidateStatus,
+  getCladeCandidate,
+  upsertCladeCandidate,
+  findCladeCandidateByPattern,
+  incrementCladeCandidateOccurrences,
   getLatestDirectionPick,
 } from './db.js';
 
-const BRAND_SECTIONS = [
+const CLADE_SECTIONS = [
   'colors',
   'typography',
   'spacing',
@@ -31,9 +31,9 @@ const BRAND_SECTIONS = [
   'atmosphere',
 ];
 
-export function createBrandNode(db, projectId, label) {
+export function createCladeNode(db, projectId, label) {
   const now = Date.now();
-  return insertBrandNode(db, {
+  return insertCladeNode(db, {
     id: randomUUID(),
     projectId,
     parentId: null,
@@ -44,11 +44,11 @@ export function createBrandNode(db, projectId, label) {
   });
 }
 
-export function getBrandSnapshot(db, projectId) {
-  const node = getBrandNodeByProject(db, projectId);
-  const snapshot = Object.fromEntries(BRAND_SECTIONS.map((s) => [s, {}]));
+export function getCladeSnapshot(db, projectId) {
+  const node = getCladeNodeByProject(db, projectId);
+  const snapshot = Object.fromEntries(CLADE_SECTIONS.map((s) => [s, {}]));
   if (!node) return snapshot;
-  const fields = listBrandFields(db, node.id);
+  const fields = listCladeFields(db, node.id);
   for (const f of fields) {
     if (f.confidence >= 0.5 && !f.locked) {
       if (!snapshot[f.section]) snapshot[f.section] = {};
@@ -58,30 +58,30 @@ export function getBrandSnapshot(db, projectId) {
   return snapshot;
 }
 
-export function updateFieldConfidence(db, nodeId, section, key, value, source) {
+export function updateCladeFieldConfidence(db, nodeId, section, key, value, source) {
   const now = Date.now();
-  const existing = getBrandField(db, nodeId, section, key);
+  const existing = getCladeField(db, nodeId, section, key);
   if (existing) {
     if (existing.locked) {
       // Under rejection lock — only increment lock_count
       const newLockCount = existing.lockCount + 1;
-      upsertBrandField(db, {
+      upsertCladeField(db, {
         ...existing,
         lockCount: newLockCount,
         locked: newLockCount >= 10 ? 0 : 1,
         updatedAt: now,
       });
-      return getBrandField(db, nodeId, section, key);
+      return getCladeField(db, nodeId, section, key);
     }
     const newConfidence = Math.min(1.0, existing.confidence + 0.1);
-    const updated = upsertBrandField(db, {
+    const updated = upsertCladeField(db, {
       ...existing,
       value,
       confidence: newConfidence,
       source,
       updatedAt: now,
     });
-    insertBrandHistory(db, {
+    insertCladeHistory(db, {
       id: randomUUID(),
       nodeId,
       section,
@@ -94,7 +94,7 @@ export function updateFieldConfidence(db, nodeId, section, key, value, source) {
     });
     return updated;
   }
-  const newField = upsertBrandField(db, {
+  const newField = upsertCladeField(db, {
     id: randomUUID(),
     nodeId,
     section,
@@ -107,7 +107,7 @@ export function updateFieldConfidence(db, nodeId, section, key, value, source) {
     createdAt: now,
     updatedAt: now,
   });
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section,
@@ -121,14 +121,14 @@ export function updateFieldConfidence(db, nodeId, section, key, value, source) {
   return newField;
 }
 
-export function getHealthScore(db, nodeId) {
-  const fields = listBrandFields(db, nodeId);
+export function getCladeHealthScore(db, nodeId) {
+  const fields = listCladeFields(db, nodeId);
   if (fields.length === 0) return 0;
 
   const sectionSet = new Set(fields.filter((f) => f.confidence > 0).map((f) => f.section));
-  const completeness = sectionSet.size / BRAND_SECTIONS.length;
+  const completeness = sectionSet.size / CLADE_SECTIONS.length;
 
-  const candidates = listBrandCandidates(db, nodeId, 'pending');
+  const candidates = listCladeCandidates(db, nodeId, 'pending');
   const conflictKeys = new Set(candidates.map((c) => `${c.section}:${c.key}`));
   const totalFields = fields.length;
   const unconflicted = fields.filter((f) => !conflictKeys.has(`${f.section}:${f.key}`)).length;
@@ -138,22 +138,22 @@ export function getHealthScore(db, nodeId) {
 
   const raw = completeness * 0.4 + consistency * 0.4 + avgConfidence * 0.2;
   const health = Math.round(raw * 100);
-  updateBrandNodeHealth(db, nodeId, health);
+  updateCladeNodeHealth(db, nodeId, health);
   return health;
 }
 
 export function exportDesignMd(db, nodeId) {
-  const node = getBrandNode(db, nodeId);
+  const node = getCladeNode(db, nodeId);
   const label = node ? node.label : 'Brand';
-  const fields = listBrandFields(db, nodeId);
-  const sections = Object.fromEntries(BRAND_SECTIONS.map((s) => [s, []]));
+  const fields = listCladeFields(db, nodeId);
+  const sections = Object.fromEntries(CLADE_SECTIONS.map((s) => [s, []]));
   for (const f of fields) {
     if (f.confidence >= 0.5 && !f.locked && sections[f.section]) {
       sections[f.section].push(`  ${f.key}: ${f.value}`);
     }
   }
   const lines = [`# ${label} Design System\n`];
-  for (const section of BRAND_SECTIONS) {
+  for (const section of CLADE_SECTIONS) {
     lines.push(`## ${section}`);
     if (sections[section].length > 0) {
       lines.push(...sections[section]);
@@ -166,19 +166,19 @@ export function exportDesignMd(db, nodeId) {
 }
 
 export function exportCladeJson(db, nodeId) {
-  const node = getBrandNode(db, nodeId);
-  const fields = listBrandFields(db, nodeId);
-  const history = listBrandHistory(db, nodeId);
-  const candidates = listBrandCandidates(db, nodeId);
+  const node = getCladeNode(db, nodeId);
+  const fields = listCladeFields(db, nodeId);
+  const history = listCladeHistory(db, nodeId);
+  const candidates = listCladeCandidates(db, nodeId);
   return { node, fields, history, candidates };
 }
 
-export function promoteBrandCandidate(db, nodeId, candidateId) {
-  const candidate = getBrandCandidate(db, candidateId);
+export function promoteCladeCandidate(db, nodeId, candidateId) {
+  const candidate = getCladeCandidate(db, candidateId);
   if (!candidate || candidate.nodeId !== nodeId) return null;
   const now = Date.now();
-  const existing = getBrandField(db, nodeId, candidate.section, candidate.key);
-  upsertBrandField(db, {
+  const existing = getCladeField(db, nodeId, candidate.section, candidate.key);
+  upsertCladeField(db, {
     id: existing?.id ?? randomUUID(),
     nodeId,
     section: candidate.section,
@@ -191,7 +191,7 @@ export function promoteBrandCandidate(db, nodeId, candidateId) {
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   });
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section: candidate.section,
@@ -202,21 +202,21 @@ export function promoteBrandCandidate(db, nodeId, candidateId) {
     action: 'promote',
     createdAt: now,
   });
-  updateBrandCandidateStatus(db, candidateId, 'promoted');
-  const health = getHealthScore(db, nodeId);
+  updateCladeCandidateStatus(db, candidateId, 'promoted');
+  const health = getCladeHealthScore(db, nodeId);
   return { health };
 }
 
-export function rejectBrandCandidate(db, nodeId, candidateId) {
-  const candidate = getBrandCandidate(db, candidateId);
+export function rejectCladeCandidate(db, nodeId, candidateId) {
+  const candidate = getCladeCandidate(db, candidateId);
   if (!candidate || candidate.nodeId !== nodeId) return null;
   const now = Date.now();
-  const existing = getBrandField(db, nodeId, candidate.section, candidate.key);
+  const existing = getCladeField(db, nodeId, candidate.section, candidate.key);
   // Only zero-and-lock the field when the candidate being rejected IS the current
   // field value. If the user promoted #533afd and is now rejecting a conflicting
   // candidate #ff0000, the accepted field must not be touched.
   if (existing && existing.value === candidate.value) {
-    upsertBrandField(db, {
+    upsertCladeField(db, {
       ...existing,
       confidence: 0.0,
       locked: 1,
@@ -224,7 +224,7 @@ export function rejectBrandCandidate(db, nodeId, candidateId) {
       updatedAt: now,
     });
   }
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section: candidate.section,
@@ -235,24 +235,24 @@ export function rejectBrandCandidate(db, nodeId, candidateId) {
     action: 'reject',
     createdAt: now,
   });
-  updateBrandCandidateStatus(db, candidateId, 'rejected');
-  return { health: getHealthScore(db, nodeId) };
+  updateCladeCandidateStatus(db, candidateId, 'rejected');
+  return { health: getCladeHealthScore(db, nodeId) };
 }
 
 /**
- * Called after artifact generation. Writes patterns to brand_candidates
- * (creating or incrementing occurrences), and increments brand_fields
+ * Called after artifact generation. Writes patterns to clade_candidates
+ * (creating or incrementing occurrences), and increments clade_fields
  * confidence for patterns that already exist as confirmed fields.
  */
 export function applyExtractedPatterns(db, nodeId, patterns, artifactId = null) {
   const now = Date.now();
   for (const { section, key, value } of patterns) {
     // Find or create candidate
-    const existing = findBrandCandidateByPattern(db, nodeId, section, key, value);
+    const existing = findCladeCandidateByPattern(db, nodeId, section, key, value);
     if (existing) {
-      incrementBrandCandidateOccurrences(db, existing.id);
+      incrementCladeCandidateOccurrences(db, existing.id);
     } else {
-      upsertBrandCandidate(db, {
+      upsertCladeCandidate(db, {
         id: randomUUID(),
         nodeId,
         section,
@@ -267,20 +267,20 @@ export function applyExtractedPatterns(db, nodeId, patterns, artifactId = null) 
     }
 
     // If a confirmed field exists with the same value, increment its confidence
-    const existingField = getBrandField(db, nodeId, section, key);
+    const existingField = getCladeField(db, nodeId, section, key);
     if (existingField && existingField.value === value) {
-      updateFieldConfidence(db, nodeId, section, key, value, 'extracted');
+      updateCladeFieldConfidence(db, nodeId, section, key, value, 'extracted');
     }
   }
 }
 
 /**
- * Records a user direction pick in brand_history.
+ * Records a user direction pick in clade_history.
  * section='direction', key=philosophy id, new_value encodes school+name,
  * confidence=0.85 per spec (explicit user choice — highest-weight signal).
  */
 export function recordDirectionPick(db, nodeId, philosophy) {
-  insertBrandHistory(db, {
+  insertCladeHistory(db, {
     id: randomUUID(),
     nodeId,
     section: 'direction',

@@ -15,7 +15,7 @@ export function DirectionPicker({ directions, onPick, onSkip }: Props) {
             Choose a design direction
           </h2>
           <p className="mt-0.5 text-sm text-gray-500">
-            Your brief is open-ended. Pick a direction and the brand-brain will remember it.
+            Your brief is open-ended. Pick a direction and the Clade Brain will remember it.
           </p>
         </div>
 

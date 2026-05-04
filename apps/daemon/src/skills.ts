@@ -58,14 +58,14 @@ export async function listSkills(skillsRoot) {
         examplePrompt: derivePrompt(data),
         body: hasAttachments ? withSkillRootPreamble(body, dir) : body,
         dir,
-        // Brand-brain integration fields.
+        // Clade Brain integration fields.
         // injection: 'auto' (default) — inject brand snapshot when available
         //            'conditional'   — same as auto in V1; V2 gates on health
         //            'never'         — skill manages its own tokens; skip Layer 3
-        brandBrainInjection: normalizeInjection(data.od?.brand_brain?.injection),
+        cladeBrainInjection: normalizeInjection(data.od?.clade_brain?.injection),
         // manages_direction: true means the skill owns direction selection;
         // the direction advisor won't fire even on vague briefs (Phase 4+).
-        brandBrainManagesDirection: normalizeBoolHint(data.od?.brand_brain?.manages_direction) ?? false,
+        cladeBrainManagesDirection: normalizeBoolHint(data.od?.clade_brain?.manages_direction) ?? false,
       });
     } catch {
       // Skip unreadable entries — this is discovery, not validation.

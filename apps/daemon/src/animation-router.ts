@@ -4,7 +4,7 @@ import { execFile as execFileCb } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { getBrandNodeByProject, listBrandFields, upsertBrandField } from './db.js';
+import { getCladeNodeByProject, listCladeFields, upsertCladeField } from './db.js';
 
 const execFile = promisify(execFileCb);
 
@@ -13,19 +13,19 @@ const VALID_PIPELINES = new Set(['local', 'cloud', 'ask']);
 // ------------------------------------------------------------------ read/write preference
 
 export function getAnimationPipeline(db, projectId) {
-  const node = getBrandNodeByProject(db, projectId);
+  const node = getCladeNodeByProject(db, projectId);
   if (!node) return 'ask';
-  const fields = listBrandFields(db, node.id);
+  const fields = listCladeFields(db, node.id);
   const pref = fields.find((f) => f.section === 'motion' && f.key === 'animation.pipeline');
   return VALID_PIPELINES.has(pref?.value) ? pref.value : 'ask';
 }
 
 export function setAnimationPipeline(db, projectId, pipeline) {
   if (!VALID_PIPELINES.has(pipeline)) return;
-  const node = getBrandNodeByProject(db, projectId);
+  const node = getCladeNodeByProject(db, projectId);
   if (!node) return;
   const now = Date.now();
-  upsertBrandField(db, {
+  upsertCladeField(db, {
     id: randomUUID(),
     nodeId: node.id,
     section: 'motion',
@@ -43,9 +43,9 @@ export function setAnimationPipeline(db, projectId, pipeline) {
 // ------------------------------------------------------------------ brand context for cloud prompts
 
 export function getBrandPromptContext(db, projectId) {
-  const node = getBrandNodeByProject(db, projectId);
+  const node = getCladeNodeByProject(db, projectId);
   if (!node) return '';
-  const fields = listBrandFields(db, node.id);
+  const fields = listCladeFields(db, node.id);
   const parts = [];
 
   const primaryColor = fields.find(

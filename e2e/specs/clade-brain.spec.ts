@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
-// Brand-brain learning loop E2E tests.
+// Clade Brain learning loop E2E tests.
 //
 // These tests require the full daemon + web stack (started automatically by
 // playwright.config.ts webServer entries). They verify the three-phase loop:
@@ -38,7 +38,7 @@ async function createProject(request: Parameters<typeof test>[1] extends infer T
   return body.project as { id: string; name: string };
 }
 
-test.describe('Brand-brain bootstrap', () => {
+test.describe('Clade Brain bootstrap', () => {
 
   test('Path A: seeding from library populates brand-brain and raises health', async ({
     request,
@@ -47,11 +47,11 @@ test.describe('Brand-brain bootstrap', () => {
     const projectId = project.id;
 
     // Before seed: health should be 0
-    const healthBefore = await (await request.get(`/api/brand/${projectId}/health`)).json();
+    const healthBefore = await (await request.get(`/api/clade/${projectId}/health`)).json();
     expect(healthBefore.health).toBe(0);
 
     // Seed from the 'stripe' design system
-    const seedRes = await request.post(`/api/brand/${projectId}/bootstrap/seed`, {
+    const seedRes = await request.post(`/api/clade/${projectId}/bootstrap/seed`, {
       data: { designSystemId: 'stripe' },
     });
     expect(seedRes.ok()).toBeTruthy();
@@ -59,7 +59,7 @@ test.describe('Brand-brain bootstrap', () => {
     expect(health).toBeGreaterThan(0);
 
     // History should have an 'import' entry
-    const entries = await (await request.get(`/api/brand/${projectId}/history`)).json();
+    const entries = await (await request.get(`/api/clade/${projectId}/history`)).json();
     expect(entries.some((e: { action: string }) => e.action === 'import')).toBe(true);
   });
 
@@ -67,30 +67,30 @@ test.describe('Brand-brain bootstrap', () => {
     const project = await createProject(request, 'Clear Test');
     const projectId = project.id;
 
-    await request.post(`/api/brand/${projectId}/bootstrap/seed`, {
+    await request.post(`/api/clade/${projectId}/bootstrap/seed`, {
       data: { designSystemId: 'stripe' },
     });
 
-    const clearRes = await request.post(`/api/brand/${projectId}/bootstrap/clear`);
+    const clearRes = await request.post(`/api/clade/${projectId}/bootstrap/clear`);
     expect(clearRes.ok()).toBeTruthy();
 
-    const health = await (await request.get(`/api/brand/${projectId}/health`)).json();
+    const health = await (await request.get(`/api/clade/${projectId}/health`)).json();
     expect(health.health).toBe(0);
   });
 
   test('seed raises health and writes import history entry', async ({ request }) => {
     const project = await createProject(request, 'Sections Test');
 
-    await request.post(`/api/brand/${project.id}/bootstrap/seed`, {
+    await request.post(`/api/clade/${project.id}/bootstrap/seed`, {
       data: { designSystemId: 'stripe' },
     });
 
     // Bootstrap seeds at confidence 0.35 — below the snapshot's 0.5 gate,
     // so snapshot stays empty. Verify via health > 0 and history entry instead.
-    const health = (await (await request.get(`/api/brand/${project.id}/health`)).json()).health;
+    const health = (await (await request.get(`/api/clade/${project.id}/health`)).json()).health;
     expect(health).toBeGreaterThan(0);
 
-    const history = await (await request.get(`/api/brand/${project.id}/history`)).json();
+    const history = await (await request.get(`/api/clade/${project.id}/history`)).json();
     const importEntry = history.find((e: { action: string; section: string }) =>
       e.action === 'import' && e.section === 'meta',
     );
@@ -106,7 +106,7 @@ async function createFixtureCandidate(
   projectId: string,
   overrides: { section?: string; key?: string; value?: string; occurrences?: number } = {},
 ) {
-  const res = await request.post(`/api/brand/${projectId}/candidates/fixture`, {
+  const res = await request.post(`/api/clade/${projectId}/candidates/fixture`, {
     data: {
       section: overrides.section ?? 'colors',
       key: overrides.key ?? 'primary',
@@ -123,22 +123,22 @@ test.describe('Governance queue', () => {
     const project = await createProject(request, 'Governance Test');
     const projectId = project.id;
 
-    const healthBefore = (await (await request.get(`/api/brand/${projectId}/health`)).json()).health;
+    const healthBefore = (await (await request.get(`/api/clade/${projectId}/health`)).json()).health;
 
     // Create a deterministic candidate via fixture — unconditionally exercised
     const candidate = await createFixtureCandidate(request, projectId);
 
-    const promoteRes = await request.post(`/api/brand/${projectId}/promote/${candidate.id}`);
+    const promoteRes = await request.post(`/api/clade/${projectId}/promote/${candidate.id}`);
     expect(promoteRes.ok()).toBeTruthy();
 
-    const healthAfter = (await (await request.get(`/api/brand/${projectId}/health`)).json()).health;
+    const healthAfter = (await (await request.get(`/api/clade/${projectId}/health`)).json()).health;
     expect(healthAfter).toBeGreaterThan(healthBefore);
 
-    const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
+    const history = await (await request.get(`/api/clade/${projectId}/history`)).json();
     expect(history.some((e: { action: string }) => e.action === 'promote')).toBe(true);
 
     // Promoted field must appear in the brand snapshot (confidence 0.9 ≥ 0.5 gate)
-    const snap = await (await request.get(`/api/brand/${projectId}/snapshot`)).json();
+    const snap = await (await request.get(`/api/clade/${projectId}/snapshot`)).json();
     expect(snap.colors?.primary).toBe('#533afd');
   });
 
@@ -151,7 +151,7 @@ test.describe('Governance queue', () => {
       key: 'primary',
       value: '#533afd',
     });
-    await request.post(`/api/brand/${projectId}/promote/${promotedCandidate.id}`);
+    await request.post(`/api/clade/${projectId}/promote/${promotedCandidate.id}`);
 
     // Now create a conflicting candidate with the same key but different value
     const conflictCandidate = await createFixtureCandidate(request, projectId, {
@@ -159,14 +159,14 @@ test.describe('Governance queue', () => {
       value: '#ff0000',
     });
 
-    const rejectRes = await request.post(`/api/brand/${projectId}/reject/${conflictCandidate.id}`);
+    const rejectRes = await request.post(`/api/clade/${projectId}/reject/${conflictCandidate.id}`);
     expect(rejectRes.ok()).toBeTruthy();
 
-    const history = await (await request.get(`/api/brand/${projectId}/history`)).json();
+    const history = await (await request.get(`/api/clade/${projectId}/history`)).json();
     expect(history.some((e: { action: string }) => e.action === 'reject')).toBe(true);
 
     // The promoted field must survive the rejection of a conflicting candidate
-    const snap = await (await request.get(`/api/brand/${projectId}/snapshot`)).json();
+    const snap = await (await request.get(`/api/clade/${projectId}/snapshot`)).json();
     expect(snap.colors?.primary).toBe('#533afd');
   });
 
@@ -176,12 +176,12 @@ test.describe('Governance queue', () => {
 
     await createFixtureCandidate(request, projectId);
 
-    const beforeClear = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
+    const beforeClear = await (await request.get(`/api/clade/${projectId}/candidates`)).json();
     expect(beforeClear.length).toBe(1);
 
-    await request.post(`/api/brand/${projectId}/bootstrap/clear`);
+    await request.post(`/api/clade/${projectId}/bootstrap/clear`);
 
-    const afterClear = await (await request.get(`/api/brand/${projectId}/candidates`)).json();
+    const afterClear = await (await request.get(`/api/clade/${projectId}/candidates`)).json();
     expect(afterClear.length).toBe(0);
   });
 });
@@ -189,7 +189,7 @@ test.describe('Governance queue', () => {
 test.describe('Animation pipeline preference', () => {
   test('default pipeline is ask', async ({ request }) => {
     const project = await createProject(request, 'Anim Test');
-    const res = await request.get(`/api/brand/${project.id}/animation-pipeline`);
+    const res = await request.get(`/api/clade/${project.id}/animation-pipeline`);
     expect(res.ok()).toBeTruthy();
     expect((await res.json()).pipeline).toBe('ask');
   });
@@ -197,20 +197,20 @@ test.describe('Animation pipeline preference', () => {
   test('PUT stores and GET reflects the new preference', async ({ request }) => {
     const project = await createProject(request, 'Anim Pref Test');
 
-    const putRes = await request.put(`/api/brand/${project.id}/animation-pipeline`, {
+    const putRes = await request.put(`/api/clade/${project.id}/animation-pipeline`, {
       data: { pipeline: 'local' },
     });
     expect(putRes.ok()).toBeTruthy();
     expect((await putRes.json()).pipeline).toBe('local');
 
-    const getRes = await request.get(`/api/brand/${project.id}/animation-pipeline`);
+    const getRes = await request.get(`/api/clade/${project.id}/animation-pipeline`);
     expect((await getRes.json()).pipeline).toBe('local');
   });
 
   test('PUT rejects invalid pipeline values', async ({ request }) => {
     const project = await createProject(request, 'Anim Invalid Test');
 
-    const putRes = await request.put(`/api/brand/${project.id}/animation-pipeline`, {
+    const putRes = await request.put(`/api/clade/${project.id}/animation-pipeline`, {
       data: { pipeline: 'turbo' },
     });
     expect(putRes.status()).toBe(400);
@@ -218,7 +218,7 @@ test.describe('Animation pipeline preference', () => {
 
   test('check-local endpoint responds', async ({ request }) => {
     const project = await createProject(request, 'Check Local Test');
-    const res = await request.get(`/api/brand/${project.id}/animation-pipeline/check-local`);
+    const res = await request.get(`/api/clade/${project.id}/animation-pipeline/check-local`);
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(typeof body.ok).toBe('boolean');
@@ -232,7 +232,7 @@ test.describe('Direction advisor', () => {
     const project = await createProject(request, 'Direction Test');
 
     const res = await request.get(
-      `/api/brand/${project.id}/directions?message=make+it+look+good`,
+      `/api/clade/${project.id}/directions?message=make+it+look+good`,
     );
     expect(res.ok()).toBeTruthy();
     const { advisorFired, directions } = await res.json();
@@ -246,12 +246,12 @@ test.describe('Direction advisor', () => {
     const project = await createProject(request, 'NoAdvisor Test');
 
     // Seed to raise health above 30
-    await request.post(`/api/brand/${project.id}/bootstrap/seed`, {
+    await request.post(`/api/clade/${project.id}/bootstrap/seed`, {
       data: { designSystemId: 'stripe' },
     });
 
     const res = await request.get(
-      `/api/brand/${project.id}/directions?message=` +
+      `/api/clade/${project.id}/directions?message=` +
         encodeURIComponent(
           'Build a landing page for Stripe Connect showing the developer onboarding flow with real code samples and pricing table',
         ),
