@@ -11,38 +11,32 @@
 
 ### Infrastructure
 
-Playwright requires a running daemon and web server before tests execute. The daemon is built once from source, then both servers are started in the background:
+The current repository exposes Playwright through root package scripts. The Playwright config starts the daemon and web server for CI runs and can reuse existing local servers in non-CI mode.
 
 ```bash
-# Build daemon (once per session, or after source changes)
-pnpm --filter @clade/daemon build
-
-# Start daemon on Playwright's port with test fixtures enabled
-OD_PORT=17456 OD_DATA_DIR=e2e/.od-data OD_ALLOW_TEST_FIXTURES=1 \
-  node apps/daemon/dist/cli.js --no-open &
-
-# Start web dev server
-OD_PORT=17456 PORT=17573 pnpm --filter @clade/web dev &
+pnpm test:ui
 ```
 
-The Playwright config (`e2e/playwright.config.ts`) is set to `reuseExistingServer: true` in non-CI mode, so it detects the running servers and skips starting them. In CI the config starts servers from scratch.
+For headed browser runs:
+
+```bash
+pnpm test:ui:headed
+```
+
+The Playwright config is `e2e/playwright.config.ts`.
 
 ### Running the suite
 
 ```bash
-cd e2e
-npx playwright test -c playwright.config.ts --project=chromium clade-brain
+pnpm test:ui
 ```
 
 To run with a visible browser:
 ```bash
-npx playwright test -c playwright.config.ts --project=chromium clade-brain --headed
+pnpm test:ui:headed
 ```
 
-To slow down browser actions for visual inspection:
-```bash
-npx playwright test -c playwright.config.ts --project=chromium clade-brain --headed --slow-mo=1000
-```
+For focused local Playwright debugging, use the package scripts in `e2e/package.json` as the source of truth and add Playwright flags there when needed.
 
 ### Two test modes in the same suite
 
@@ -61,7 +55,7 @@ These verify that the Path A bootstrap flow (seeding from the 137-brand library)
 
 | # | Test | Duration | What it asserts |
 |---|---|---|---|
-| 1 | Path A: seeding from library populates brand-brain and raises health | 168ms | POST `/api/clade/:id/bootstrap/seed` with `designSystemId: 'stripe'` returns health > 0; history contains an `import` entry |
+| 1 | Path A: seeding from library populates Clade Brain and raises health | 168ms | POST `/api/clade/:id/bootstrap/seed` with `designSystemId: 'stripe'` returns health > 0; history contains an `import` entry |
 | 2 | seed raises health and writes import history entry | 162ms | Health is > 0 after seeding; history entry's `newValue` contains `'stripe'`; the import entry has section `'meta'` and key `'bootstrap'` |
 | 3 | Path A: clear resets health to 0 | 156ms | After seeding, POST `/api/clade/:id/bootstrap/clear` resets health to 0 |
 
@@ -73,7 +67,7 @@ These verify the promote/reject lifecycle. Because bootstrap seeding creates can
 |---|---|---|---|
 | 4 | promote increases health and writes history entry | 311ms | Promoting a candidate raises health above 0; history contains a `promote` entry; the promoted value appears in the brand snapshot at `colors.primary` |
 | 5 | reject writes history entry and does not destroy a promoted field with a different value | 326ms | Rejecting a candidate whose value differs from an already-promoted field leaves the promoted field intact in the snapshot — tests the conflict safety fix from the Codex adversarial review |
-| 6 | clearBrandNodeFields purges candidates from the queue | 212ms | After inserting a fixture candidate, bootstrap clear removes it from the candidates endpoint |
+| 6 | clearCladeNodeFields purges candidates from the queue | 212ms | After inserting a fixture candidate, bootstrap clear removes it from the candidates endpoint |
 
 ### Group 3 — Animation pipeline preference (4 tests)
 
@@ -149,11 +143,4 @@ All 14 tests passed across two separate runs on 2026-05-04.
 
 ## How to view the full report
 
-After any test run:
-
-```bash
-cd e2e
-npx playwright show-report reports/playwright-html-report
-```
-
-This opens an HTML report in the browser showing per-test timelines, network requests, and screenshots on failure.
+After a UI test run, inspect the generated files under `e2e/reports/`. The HTML report contains per-test timelines, network requests, and screenshots on failure.

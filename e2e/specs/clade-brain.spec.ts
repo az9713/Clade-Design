@@ -40,7 +40,7 @@ async function createProject(request: Parameters<typeof test>[1] extends infer T
 
 test.describe('Clade Brain bootstrap', () => {
 
-  test('Path A: seeding from library populates brand-brain and raises health', async ({
+  test('Path A: seeding from library populates Clade Brain and raises health', async ({
     request,
   }) => {
     const project = await createProject(request, 'Bootstrap Test');
@@ -170,7 +170,7 @@ test.describe('Governance queue', () => {
     expect(snap.colors?.primary).toBe('#533afd');
   });
 
-  test('clearBrandNodeFields purges candidates from the queue', async ({ request }) => {
+  test('clearCladeNodeFields purges candidates from the queue', async ({ request }) => {
     const project = await createProject(request, 'Clear Candidates Test');
     const projectId = project.id;
 
