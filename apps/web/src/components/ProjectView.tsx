@@ -133,6 +133,9 @@ export function ProjectView({
   const [error, setError] = useState<string | null>(null);
   const [artifact, setArtifact] = useState<Artifact | null>(null);
   const [showBootstrap, setShowBootstrap] = useState(false);
+  // Bumped to force CladePane to re-fetch its health/candidates/history
+  // (e.g., after BootstrapScreen completes a seed).
+  const [cladeRefreshKey, setCladeRefreshKey] = useState(0);
   const [directionPending, setDirectionPending] = useState<{
     prompt: string;
     attachments: ChatAttachment[];
@@ -702,12 +705,15 @@ export function ProjectView({
       prompt: string,
       attachments: ChatAttachment[],
       commentAttachments: ChatCommentAttachment[] = commentsToAttachments(attachedComments),
+      options: { skipDirectionAdvisor?: boolean } = {},
     ) => {
       if (!activeConversationId) return;
       if (!prompt.trim() && attachments.length === 0 && commentAttachments.length === 0) return;
 
       // Direction advisor check (daemon mode only).
-      if (config.mode === 'daemon' && prompt.trim()) {
+      // Skipped on the resend that follows a direction pick or skip — otherwise
+      // the same vague brief would keep re-firing the advisor.
+      if (config.mode === 'daemon' && prompt.trim() && !options.skipDirectionAdvisor) {
         const check = await checkDirectionAdvisor(project.id, prompt.trim());
         if (check.advisorFired && check.directions.length > 0) {
           setDirectionPending({ prompt, attachments, commentAttachments, directions: check.directions });
@@ -1251,14 +1257,15 @@ export function ProjectView({
     await postDirectionPick(project.id, philosophyId);
     const { prompt, attachments, commentAttachments } = directionPending;
     setDirectionPending(null);
-    void handleSend(prompt, attachments, commentAttachments);
+    setCladeRefreshKey((n) => n + 1);
+    void handleSend(prompt, attachments, commentAttachments, { skipDirectionAdvisor: true });
   }, [directionPending, project.id, handleSend]);
 
   const handleDirectionSkip = useCallback(() => {
     if (!directionPending) return;
     const { prompt, attachments, commentAttachments } = directionPending;
     setDirectionPending(null);
-    void handleSend(prompt, attachments, commentAttachments);
+    void handleSend(prompt, attachments, commentAttachments, { skipDirectionAdvisor: true });
   }, [directionPending, handleSend]);
 
   return (
@@ -1266,7 +1273,10 @@ export function ProjectView({
     {showBootstrap && (
       <BootstrapScreen
         projectId={project.id}
-        onComplete={() => setShowBootstrap(false)}
+        onComplete={() => {
+          setShowBootstrap(false);
+          setCladeRefreshKey((n) => n + 1);
+        }}
       />
     )}
     {directionPending && (
@@ -1316,7 +1326,11 @@ export function ProjectView({
         </div>
       </AppChromeHeader>
       <div className="app-body">
-      <CladePane projectId={project.id} projectName={project.name} />
+      <CladePane
+        projectId={project.id}
+        projectName={project.name}
+        refreshKey={cladeRefreshKey}
+      />
       <div className="split">
         <ChatPane
           // The conversation id is part of the key so switching conversations

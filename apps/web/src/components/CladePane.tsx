@@ -15,6 +15,10 @@ type Tab = 'hierarchy' | 'candidates' | 'history';
 interface Props {
   projectId: string;
   projectName: string;
+  // Bumped by the parent when external state may have changed
+  // (e.g., after BootstrapScreen completes a seed). The pane re-fetches
+  // its data whenever this value changes.
+  refreshKey?: number;
 }
 
 // ------------------------------------------------------------------ helpers
@@ -218,7 +222,7 @@ function HistoryTab({ history }: { history: CladeHistoryEntry[] }) {
 }
 
 // ------------------------------------------------------------------ main
-export function CladePane({ projectId, projectName }: Props) {
+export function CladePane({ projectId, projectName, refreshKey = 0 }: Props) {
   const [tab, setTab] = useState<Tab>('hierarchy');
   const [health, setHealth] = useState(0);
   const [candidates, setCandidates] = useState<CladeCandidate[]>([]);
@@ -237,7 +241,7 @@ export function CladePane({ projectId, projectName }: Props) {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, refreshKey]);
 
   const pendingCount = candidates.filter((c) => c.status === 'pending').length;
 
