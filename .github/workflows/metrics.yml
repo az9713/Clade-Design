@@ -1,15 +1,12 @@
 name: github-metrics
 
+# Disabled for the Clade-Design fork. The lowlighter/metrics action targets
+# nexu-io/open-design (the parent repo) and creates a `metrics-run-*` branch
+# on every scheduled run because PR creation fails for the cross-repo target.
+# Re-enable only after retargeting `user`/`repo` to az9713/Clade-Design and
+# providing a METRICS_TOKEN with permission to open PRs in this repository.
 on:
-  schedule:
-    # Runs daily at 00:15 UTC; output is committed to docs/assets/github-metrics.svg.
-    - cron: '15 0 * * *'
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/metrics.yml
 
 permissions:
   contents: write
