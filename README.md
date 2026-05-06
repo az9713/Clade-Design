@@ -2,9 +2,21 @@
 
 > A local-first design workspace that runs in your browser, talks to a local daemon, and delegates generation to the AI coding agent CLI you already use.
 
+> ⚠️ **Status: under active development.** APIs, schemas, and commands are still changing. Use it, fork it, file issues — but expect breakage between commits.
+
 Clade-Design is a Next.js + Express application for generating and refining design artifacts. The web app provides projects, chat, previews, files, comments, design-system pickers, skills, prompt templates, media configuration, and the Clade Brain brand-memory pane. The daemon owns local data, SQLite, agent spawning, artifact files, media jobs, and the REST/SSE API.
 
 The project is TypeScript-first and uses pnpm workspaces. Runtime data is local by default under `./.od/`.
+
+## Demo
+
+The Clade Brain learning loop in action — vague brief triggers the direction picker (top), the user's pick is recorded as a high-confidence brand signal, and the generated Stripe pricing page reflects the chosen direction:
+
+![Direction picker, Clade Brain pane, and a generated Stripe pricing page side-by-side](docs/design_direction_2.jpg)
+
+Short walkthrough of bootstrap → vague brief → direction pick → generation → governance:
+
+https://github.com/user-attachments/assets/3e84c430-5379-49df-9a47-f8156ca4fab2
 
 ## What Is In The Current Codebase
 
