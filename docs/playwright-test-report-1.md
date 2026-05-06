@@ -11,32 +11,38 @@
 
 ### Infrastructure
 
-The current repository exposes Playwright through root package scripts. The Playwright config starts the daemon and web server for CI runs and can reuse existing local servers in non-CI mode.
+Playwright requires a running daemon and web server before tests execute. The daemon is built once from source, then both servers are started in the background:
 
 ```bash
-pnpm test:ui
+# Build daemon (once per session, or after source changes)
+pnpm --filter @clade/daemon build
+
+# Start daemon on Playwright's port with test fixtures enabled
+OD_PORT=17456 OD_DATA_DIR=e2e/.od-data OD_ALLOW_TEST_FIXTURES=1 \
+  node apps/daemon/dist/cli.js --no-open &
+
+# Start web dev server
+OD_PORT=17456 PORT=17573 pnpm --filter @clade/web dev &
 ```
 
-For headed browser runs:
-
-```bash
-pnpm test:ui:headed
-```
-
-The Playwright config is `e2e/playwright.config.ts`.
+The Playwright config (`e2e/playwright.config.ts`) is set to `reuseExistingServer: true` in non-CI mode, so it detects the running servers and skips starting them. In CI the config starts servers from scratch.
 
 ### Running the suite
 
 ```bash
-pnpm test:ui
+cd e2e
+npx playwright test -c playwright.config.ts --project=chromium clade-brain
 ```
 
 To run with a visible browser:
 ```bash
-pnpm test:ui:headed
+npx playwright test -c playwright.config.ts --project=chromium clade-brain --headed
 ```
 
-For focused local Playwright debugging, use the package scripts in `e2e/package.json` as the source of truth and add Playwright flags there when needed.
+To slow down browser actions for visual inspection:
+```bash
+npx playwright test -c playwright.config.ts --project=chromium clade-brain --headed --slow-mo=1000
+```
 
 ### Two test modes in the same suite
 
@@ -143,4 +149,11 @@ All 14 tests passed across two separate runs on 2026-05-04.
 
 ## How to view the full report
 
-After a UI test run, inspect the generated files under `e2e/reports/`. The HTML report contains per-test timelines, network requests, and screenshots on failure.
+After any test run:
+
+```bash
+cd e2e
+npx playwright show-report reports/playwright-html-report
+```
+
+This opens an HTML report in the browser showing per-test timelines, network requests, and screenshots on failure.

@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 //
 // These tests require the full daemon + web stack (started automatically by
 // playwright.config.ts webServer entries). They verify the three-phase loop:
-//   1. Bootstrap Path A seeds brand_fields from a library design system
+//   1. Bootstrap Path A seeds clade_fields from a library design system
 //   2. Promoting a candidate increases health and adds a history entry
 //   3. A second generation prompt contains the promoted fields (brand context injection)
 
