@@ -250,20 +250,20 @@ export function CladePane({ projectId, projectName, refreshKey = 0 }: Props) {
       <div className="brand-pane-tabs">
         <button
           className={`brand-pane-tab${tab === 'hierarchy' ? ' active' : ''}`}
-          onClick={() => setTab('hierarchy')}
+          onClick={() => { setTab('hierarchy'); void refresh(); }}
         >
           Clade Brain
         </button>
         <button
           className={`brand-pane-tab${tab === 'candidates' ? ' active' : ''}`}
-          onClick={() => setTab('candidates')}
+          onClick={() => { setTab('candidates'); void refresh(); }}
         >
           Queue
           {pendingCount > 0 && <span className="tab-badge">{pendingCount}</span>}
         </button>
         <button
           className={`brand-pane-tab${tab === 'history' ? ' active' : ''}`}
-          onClick={() => setTab('history')}
+          onClick={() => { setTab('history'); void refresh(); }}
         >
           History
         </button>

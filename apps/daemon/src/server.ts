@@ -2260,26 +2260,35 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
 
       // Clade Brain pattern extraction: fires 30s after a successful run.
       // Grace period lets the user reject the artifact before patterns are recorded.
+      console.error(`[clade-brain] close handler: status=${status} projectId=${projectId} cwd=${cwd ? 'set' : 'null'}`);
       if (status === 'succeeded' && typeof projectId === 'string' && projectId && cwd) {
         const preRunNames = new Set(existingProjectFiles.map((f) => f.name));
         const runId = run.id;
+        console.error(`[clade-brain] scheduling extraction for project=${projectId} runId=${runId} preRunNames=${preRunNames.size}`);
         const timer = setTimeout(async () => {
+          console.error(`[clade-brain] extraction timer fired for project=${projectId}`);
           try {
             const node = getCladeNodeByProject(db, projectId);
-            if (!node) return;
+            if (!node) {
+              console.error(`[clade-brain] no clade node for project=${projectId}`);
+              return;
+            }
             const currentFiles = await listFiles(PROJECTS_DIR, projectId);
             const newHtmlFiles = currentFiles.filter(
               (f) => f.name.endsWith('.html') && !preRunNames.has(f.name),
             );
+            console.error(`[clade-brain] currentFiles=${currentFiles.length} newHtmlFiles=${newHtmlFiles.length}`);
             if (newHtmlFiles.length === 0) return;
             const allPatterns = [];
             for (const file of newHtmlFiles) {
               try {
                 const result = await readProjectFile(PROJECTS_DIR, projectId, file.name);
                 const html = result.buffer.toString('utf8');
-                allPatterns.push(...extractPatterns(html));
-              } catch {
-                // Skip unreadable files
+                const patterns = extractPatterns(html);
+                console.error(`[clade-brain] file=${file.name} extracted=${patterns.length}`);
+                allPatterns.push(...patterns);
+              } catch (e) {
+                console.error(`[clade-brain] read failed for ${file.name}: ${e.message}`);
               }
             }
             // Deduplicate across files before applying
@@ -2288,9 +2297,11 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
               const k = `${p.section}\x00${p.key}\x00${p.value}`;
               seen.set(k, p);
             }
+            console.error(`[clade-brain] applying ${seen.size} unique patterns to node=${node.id}`);
             applyExtractedPatterns(db, node.id, Array.from(seen.values()), runId);
+            console.error(`[clade-brain] extraction complete`);
           } catch (err) {
-            console.error('[clade-brain] pattern extraction failed:', err.message);
+            console.error('[clade-brain] pattern extraction failed:', err.message, err.stack);
           }
         }, 30_000);
         timer.unref?.();
@@ -2555,8 +2566,12 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     try {
       const node = getCladeNodeByProject(db, req.params.projectId);
       if (!node) return res.json([]);
-      // Only surface candidates with >= 3 occurrences in the governance queue
-      const candidates = listCladeCandidates(db, node.id, 'pending', { minOccurrences: 3 });
+      // Default: only surface candidates with >= 3 occurrences in the governance queue.
+      // Override via ?minOccurrences=N query param (useful for debugging single-artifact runs).
+      const overrideRaw = req.query?.minOccurrences;
+      const overrideNum = typeof overrideRaw === 'string' ? Number.parseInt(overrideRaw, 10) : NaN;
+      const minOccurrences = Number.isFinite(overrideNum) && overrideNum > 0 ? overrideNum : 3;
+      const candidates = listCladeCandidates(db, node.id, 'pending', { minOccurrences });
       res.json(candidates);
     } catch (err) {
       sendApiError(res, 500, 'INTERNAL_ERROR', String(err));

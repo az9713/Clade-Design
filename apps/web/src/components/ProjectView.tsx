@@ -712,8 +712,17 @@ export function ProjectView({
 
       // Direction advisor check (daemon mode only).
       // Skipped on the resend that follows a direction pick or skip — otherwise
-      // the same vague brief would keep re-firing the advisor.
-      if (config.mode === 'daemon' && prompt.trim() && !options.skipDirectionAdvisor) {
+      // the same vague brief would keep re-firing the advisor. Also skipped for
+      // form-answer envelopes (`[form answers — ...]\n- ...`) generated when the
+      // agent's <question-form> is submitted, since those auto-generated payloads
+      // are short and look "vague" to the advisor heuristic.
+      const isFormAnswer = prompt.trimStart().startsWith('[form answers');
+      if (
+        config.mode === 'daemon' &&
+        prompt.trim() &&
+        !options.skipDirectionAdvisor &&
+        !isFormAnswer
+      ) {
         const check = await checkDirectionAdvisor(project.id, prompt.trim());
         if (check.advisorFired && check.directions.length > 0) {
           setDirectionPending({ prompt, attachments, commentAttachments, directions: check.directions });
